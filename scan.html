@@ -1,59 +1,14 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>إضافة منتج بالباركود</title>
-    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.18.6"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            direction: rtl;
-            margin: 20px;
-        }
-        form {
-            max-width: 400px;
-            margin: 0 auto;
-            text-align: right;
-        }
-        input, button {
-            width: 100%;
-            padding: 10px;
-            margin: 5px 0;
-        }
-        video {
-            width: 100%;
-            max-width: 400px;
-            border: 2px solid #000;
-            margin: 10px 0;
-        }
-        p {
-            margin: 10px 0;
-        }
-    </style>
-</head>
-<body>
-    <h1>إضافة منتج جديد</h1>
-    <button id="startScanButton">ابدأ المسح</button>
-    <video id="video" style="border: 1px solid black; display:none;"></video>
-    <p id="barcodeResult">قم بمسح الباركود...</p>
+    <title>Add Product by Barcode</title>
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.17.1/firebase-app.js';
+        import { getDatabase, ref, set } from 'https://www.gstatic.com/firebasejs/9.17.1/firebase-database.js';
+        import { BrowserBarcodeReader } from 'https://cdn.jsdelivr.net/npm/@zxing/library@0.18.6';
 
-    <form id="productForm" style="display:none;">
-        <label for="name">اسم المنتج:</label>
-        <input type="text" id="name" placeholder="أدخل اسم المنتج" required>
-        
-        <label for="price">السعر:</label>
-        <input type="number" id="price" placeholder="أدخل السعر بالدينار" required>
-        
-        <button type="submit">إضافة المنتج</button>
-    </form>
-    <p id="message"></p>
-
-    <script>
-        // إعداد Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyBdWOHCGrxWsEg_fF_z464NvkRp6QqApNw",
             authDomain: "product-scan1.firebaseapp.com",
@@ -64,41 +19,57 @@
             appId: "1:227139574485:web:84355fe8d34f1d3ded605c"
         };
 
-        // تهيئة التطبيق Firebase
-        const app = firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
 
-        // إعداد ZXing لمسح الباركود
-        const codeReader = new ZXing.BrowserBarcodeReader();
+        const codeReader = new BrowserBarcodeReader();
         const videoElement = document.getElementById('video');
         const barcodeResult = document.getElementById('barcodeResult');
         const form = document.getElementById('productForm');
         const message = document.getElementById('message');
+        const fileInput = document.getElementById('fileInput');
+        const imagePreview = document.getElementById('imagePreview');
+        const uploadButton = document.getElementById('uploadBarcodeButton');
         let scannedBarcode = "";
 
-        // بدء المسح عند الضغط على زر المسح
-        const startScanButton = document.getElementById('startScanButton');
-        
-        startScanButton.addEventListener('click', () => {
-            startScanButton.style.display = 'none'; // إخفاء الزر بعد النقر عليه
-            videoElement.style.display = 'block'; // إظهار الفيديو
-            startScanning(); // بدء المسح
+        // Start scanning when the button is clicked
+        document.getElementById('startScanButton').addEventListener('click', () => {
+            document.getElementById('startScanButton').style.display = 'none'; // Hide the button
+            videoElement.style.display = 'block'; // Show the video element
+            startScanning(); // Start the scanning process
         });
 
-        // تفعيل المسح باستخدام الكاميرا
         function startScanning() {
             codeReader.decodeFromVideoDevice(undefined, videoElement, (result, err) => {
                 if (result) {
                     scannedBarcode = result.text;
-                    barcodeResult.textContent = `تم مسح الباركود: ${scannedBarcode}`;
-                    form.style.display = "block"; // إظهار النموذج لإدخال الاسم والسعر
+                    barcodeResult.textContent = `Barcode scanned: ${scannedBarcode}`;
+                    form.style.display = "block"; // Show the form for product name and price
                 } else if (err) {
-                    barcodeResult.textContent = `خطأ أثناء المسح: ${err}`;
+                    barcodeResult.textContent = `Error scanning barcode: ${err}`;
                 }
             });
         }
 
-        // إضافة المنتج إلى Firebase عند إرسال النموذج
+        // Handle file input for barcode image upload
+        uploadButton.addEventListener('click', function() {
+            fileInput.click(); // Trigger file input when the button is clicked
+        });
+
+        fileInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result; // Display the selected image
+                    imagePreview.style.display = 'block'; // Show the image preview
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Upload product data to Firebase when the form is submitted
         form.addEventListener('submit', (e) => {
             e.preventDefault();
 
@@ -106,21 +77,130 @@
             const price = document.getElementById('price').value.trim();
 
             if (name && price && scannedBarcode) {
-                firebase.database().ref('products/' + scannedBarcode).set({
+                set(ref(database, 'products/' + scannedBarcode), {
                     name: name,
                     price: price
                 }).then(() => {
-                    message.textContent = "تمت إضافة المنتج بنجاح!";
+                    message.textContent = "Product added successfully!";
                     form.reset();
-                    form.style.display = "none"; // إخفاء النموذج بعد الإضافة
-                    barcodeResult.textContent = "قم بمسح الباركود...";
+                    form.style.display = "none"; // Hide the form after submission
+                    barcodeResult.textContent = "Scan barcode...";
                 }).catch((error) => {
-                    message.textContent = "حدث خطأ أثناء إضافة المنتج: " + error.message;
+                    message.textContent = "Error adding product: " + error.message;
                 });
             } else {
-                message.textContent = "يرجى ملء جميع الحقول.";
+                message.textContent = "Please fill in all fields.";
             }
         });
     </script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            text-align: center;
+            direction: ltr;
+            margin: 20px;
+        }
+
+        h1 {
+            color: #4CAF50;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px 32px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 16px;
+            margin-top: 20px;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        video {
+            max-width: 100%;
+            margin-top: 20px;
+            border: 2px solid #ddd;
+            display: none;
+        }
+
+        input[type="text"], input[type="number"], input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            font-size: 16px;
+        }
+
+        img {
+            max-width: 300px;
+            margin-top: 20px;
+            border-radius: 5px;
+            display: none;
+        }
+
+        #productForm {
+            max-width: 500px;
+            margin: 20px auto;
+            text-align: left;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        p {
+            font-size: 16px;
+        }
+
+        #message {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .input-group {
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Add Product by Barcode</h1>
+    <button id="startScanButton">Start Scanning</button>
+    <video id="video"></video>
+    <p id="barcodeResult">Scan barcode...</p>
+
+    <form id="productForm" style="display:none;">
+        <div class="input-group">
+            <label for="name">Product Name:</label>
+            <input type="text" id="name" placeholder="Enter product name" required>
+        </div>
+        
+        <div class="input-group">
+            <label for="price">Price (in currency):</label>
+            <input type="number" id="price" placeholder="Enter price" required>
+        </div>
+
+        <div class="input-group">
+            <button type="button" id="uploadBarcodeButton">Upload Barcode Image</button>
+            <input type="file" id="fileInput" accept="image/*" style="display:none;">
+        </div>
+
+        <img id="imagePreview" alt="Barcode image preview" />
+
+        <button type="submit">Add Product</button>
+    </form>
+
+    <p id="message"></p>
+
 </body>
 </html>
