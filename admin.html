@@ -3,173 +3,406 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#1e40af">
-  <title>Admin - Product Scanner PWA</title>
-  <link rel="manifest" href="./manifest.json">
-  <link rel="icon" type="image/png" href="https://via.placeholder.com/192x192.png?text=App+Icon">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js"></script>
-  <script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js"></script>
-  <script defer src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js"></script>
+  <title>Admin Dashboard</title>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <style>
-    body { background: linear-gradient(to bottom, #1e40af, #3b82f6); min-height: 100vh; }
-    .toast { transition: all 0.3s ease-in-out; transform: translateY(-100px); opacity: 0; }
-    .toast.show { transform: translateY(0); opacity: 1; }
-    .form-container { transition: all 0.3s ease; }
-    .form-container:hover { transform: scale(1.02); }
+    :root {
+      --primary-color: #4285f4;
+      --secondary-color: #34a853;
+      --error-color: #ea4335;
+      --text-color: #333;
+      --light-gray: #f5f5f5;
+      --dark-gray: #757575;
+      --shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    }
+    
+    body {
+      background-color: #f9f9f9;
+      color: var(--text-color);
+      line-height: 1.6;
+      padding: 0;
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .container {
+      width: 100%;
+      max-width: 500px;
+      margin: 0 auto;
+      padding: 20px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    header {
+      background-color: var(--primary-color);
+      color: white;
+      padding: 15px 20px;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+    
+    .logo {
+      font-weight: bold;
+      font-size: 1.3rem;
+    }
+    
+    .card {
+      background-color: white;
+      border-radius: 10px;
+      padding: 25px;
+      margin-top: 20px;
+      box-shadow: var(--shadow);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .card-title {
+      font-size: 1.3rem;
+      margin-bottom: 20px;
+      color: var(--primary-color);
+      text-align: center;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: var(--dark-gray);
+    }
+    
+    .form-group input {
+      width: 100%;
+      padding: 12px 15px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-size: 1rem;
+      transition: border 0.3s;
+    }
+    
+    .form-group input:focus {
+      border-color: var(--primary-color);
+      outline: none;
+    }
+    
+    .btn {
+      display: inline-block;
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 5px;
+      font-size: 1rem;
+      cursor: pointer;
+      text-align: center;
+      transition: background-color 0.3s;
+      width: 100%;
+    }
+    
+    .btn:hover {
+      background-color: #3367d6;
+    }
+    
+    .btn-secondary {
+      background-color: var(--secondary-color);
+    }
+    
+    .btn-secondary:hover {
+      background-color: #2d9249;
+    }
+    
+    .btn-danger {
+      background-color: var(--error-color);
+    }
+    
+    .btn-danger:hover {
+      background-color: #d33426;
+    }
+    
+    .error-message {
+      color: var(--error-color);
+      font-size: 0.9rem;
+      margin-top: 10px;
+      text-align: center;
+    }
+    
+    .success-message {
+      color: var(--secondary-color);
+      font-size: 0.9rem;
+      margin-top: 10px;
+      text-align: center;
+    }
+    
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 1s ease-in-out infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .logout-container {
+      margin-top: auto;
+      padding-top: 20px;
+    }
+    
+    .hidden {
+      display: none !important;
+    }
+    
+    @media (min-width: 768px) {
+      .container {
+        padding: 40px 20px;
+      }
+      
+      .card {
+        padding: 30px;
+      }
+    }
   </style>
 </head>
-<body class="flex flex-col items-center text-white font-sans">
-  <div id="toast" class="toast fixed top-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg z-50"></div>
-  <div id="loading" class="flex flex-col items-center justify-center h-screen">
-    <div class="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500"></div>
-    <p class="mt-4 text-lg">Loading...</p>
-  </div>
-  <div id="adminContent" class="hidden w-11/12 max-w-lg mt-16">
-    <h1 class="text-3xl font-bold mb-6 text-center">Admin Panel</h1>
-    <div class="form-container bg-white text-gray-800 p-6 rounded-lg shadow-lg">
-      <h2 class="text-xl font-semibold mb-4">Add/Edit Product</h2>
-      <input id="barcode" type="text" placeholder="Barcode" class="w-full p-2 mb-4 border rounded">
-      <input id="name" type="text" placeholder="Product Name" class="w-full p-2 mb-4 border rounded">
-      <input id="price" type="number" step="0.01" placeholder="Price" class="w-full p-2 mb-4 border rounded">
-      <button id="saveBtn" class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition">Save Product</button>
+<body>
+  <header>
+    <div class="logo">ProductScan Admin</div>
+  </header>
+  
+  <div class="container">
+    <!-- Login Form -->
+    <div class="card" id="login-card">
+      <h2 class="card-title">Admin Login</h2>
+      <div class="form-group">
+        <label for="login-email">Email</label>
+        <input type="email" id="login-email" placeholder="admin@example.com">
+      </div>
+      <div class="form-group">
+        <label for="login-password">Password</label>
+        <input type="password" id="login-password" placeholder="Password">
+      </div>
+      <div class="error-message" id="login-error"></div>
+      <button id="login-btn" class="btn">Login</button>
     </div>
-    <button id="logoutBtn" class="mt-6 w-full bg-red-600 text-white p-2 rounded hover:bg-red-700 transition">Logout</button>
+    
+    <!-- Admin Dashboard -->
+    <div class="card hidden" id="dashboard-card">
+      <h2 class="card-title">Product Management</h2>
+      <div class="form-group">
+        <label for="product-name">Product Name</label>
+        <input type="text" id="product-name" placeholder="Enter product name">
+      </div>
+      <div class="form-group">
+        <label for="product-price">Price ($)</label>
+        <input type="number" id="product-price" placeholder="0.00" step="0.01" min="0">
+      </div>
+      <div class="form-group">
+        <label for="product-barcode">Barcode</label>
+        <input type="text" id="product-barcode" placeholder="Enter barcode">
+      </div>
+      <div class="error-message" id="save-error"></div>
+      <div class="success-message" id="save-success"></div>
+      <button id="save-btn" class="btn btn-secondary">Save Product</button>
+      <div class="logout-container">
+        <button id="logout-btn" class="btn btn-danger">Logout</button>
+      </div>
+    </div>
   </div>
+  
   <script>
-    function showToast(message, duration = 3000) {
-      const toast = document.getElementById('toast');
-      toast.textContent = message;
-      toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), duration);
-    }
-
-    // Retry Firebase loading with timeout
-    function waitForFirebase(maxAttempts = 5, delay = 1000) {
-      return new Promise((resolve, reject) => {
-        let attempts = 0;
-        const interval = setInterval(() => {
-          attempts++;
-          if (typeof firebase !== 'undefined') {
-            clearInterval(interval);
-            console.log('Firebase SDK loaded');
-            resolve(firebase);
-          } else if (attempts >= maxAttempts) {
-            clearInterval(interval);
-            console.error('Firebase SDK failed to load after', maxAttempts, 'attempts');
-            reject(new Error('Firebase SDK not loaded'));
-          }
-        }, delay);
-      });
-    }
-
-    document.addEventListener('DOMContentLoaded', async () => {
-      try {
-        // Wait for Firebase to load
-        await waitForFirebase();
-      } catch (error) {
-        showToast('Failed to load Firebase. Check your network or try again.');
-        console.error(error.message);
-        return;
-      }
-
-      const firebaseConfig = {
-        apiKey: "AIzaSyDdjJKO4eeIWtKKUKiuT9USPF3eyFnVuSQ",
-        authDomain: "scan-prod1.firebaseapp.com",
-        databaseURL: "https://scan-prod1-default-rtdb.europe-west1.firebasedatabase.app",
-        projectId: "scan-prod1",
-        storageBucket: "scan-prod1.appspot.com",
-        messagingSenderId: "197976973628",
-        appId: "1:197976973628:web:73bdf954ae78017b813e39"
-      };
-
-      try {
-        firebase.initializeApp(firebaseConfig);
-        console.log('Firebase initialized successfully');
-      } catch (error) {
-        console.error('Firebase initialization failed:', error);
-        showToast('Firebase initialization error: ' + error.message);
-        return;
-      }
-
-      const auth = firebase.auth();
-      const db = firebase.database();
-
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyDdjJKO4eeIWtKKUKiuT9USPF3eyFnVuSQ",
+      authDomain: "scan-prod1.firebaseapp.com",
+      databaseURL: "https://scan-prod1-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "scan-prod1",
+      storageBucket: "scan-prod1.firebasestorage.app",
+      messagingSenderId: "197976973628",
+      appId: "1:197976973628:web:73bdf954ae78017b813e39"
+    };
+    
+    // Initialize Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+    const auth = firebase.auth();
+    
+    // DOM elements
+    const loginCard = document.getElementById('login-card');
+    const dashboardCard = document.getElementById('dashboard-card');
+    const loginEmail = document.getElementById('login-email');
+    const loginPassword = document.getElementById('login-password');
+    const loginError = document.getElementById('login-error');
+    const loginBtn = document.getElementById('login-btn');
+    const productName = document.getElementById('product-name');
+    const productPrice = document.getElementById('product-price');
+    const productBarcode = document.getElementById('product-barcode');
+    const saveError = document.getElementById('save-error');
+    const saveSuccess = document.getElementById('save-success');
+    const saveBtn = document.getElementById('save-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+    
+    // Initialize the app
+    function initApp() {
+      // Check auth state
       auth.onAuthStateChanged(user => {
-        const loading = document.getElementById('loading');
-        const adminContent = document.getElementById('adminContent');
-        try {
-          if (user) {
-            loading.classList.add('hidden');
-            adminContent.classList.remove('hidden');
-            console.log('User authenticated:', user.uid);
-          } else {
-            console.log('No user, redirecting to index.html');
-            window.location.href = 'index.html';
-          }
-        } catch (error) {
-          console.error('Auth state error:', error);
-          showToast('Authentication error: ' + error.message);
+        if (user) {
+          // User is signed in
+          showDashboard();
+        } else {
+          // No user is signed in
+          showLogin();
         }
       });
-
-      document.getElementById('saveBtn').addEventListener('click', async () => {
-        const barcode = document.getElementById('barcode').value.trim();
-        const name = document.getElementById('name').value.trim();
-        const price = parseFloat(document.getElementById('price').value);
-        if (!barcode || !name || isNaN(price) || price < 0) {
-          showToast('Please fill all fields correctly.');
-          return;
-        }
-        try {
-          await db.ref(`products/${barcode}`).set({
-            barcode,
-            name,
-            price
-          });
-          showToast('Product saved successfully!');
-          document.getElementById('barcode').value = '';
-          document.getElementById('name').value = '';
-          document.getElementById('price').value = '';
-          console.log('Product saved:', { barcode, name, price });
-        } catch (error) {
-          console.error('Save product error:', error);
-          showToast('Failed to save product: ' + error.message);
+      
+      // Set up event listeners
+      loginBtn.addEventListener('click', handleLogin);
+      saveBtn.addEventListener('click', handleSaveProduct);
+      logoutBtn.addEventListener('click', handleLogout);
+      
+      // Allow form submission with Enter key
+      loginPassword.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          handleLogin();
         }
       });
-
-      document.getElementById('logoutBtn').addEventListener('click', async () => {
-        try {
-          await auth.signOut();
-          showToast('Logged out successfully!');
-          window.location.href = 'index.html';
-          console.log('User logged out');
-        } catch (error) {
-          console.error('Logout error:', error);
-          showToast('Logout failed: ' + error.message);
+      
+      productBarcode.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          handleSaveProduct();
         }
-      });
-    });
-
-    // Service Worker registration with cache clearing
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(registrations => {
-        for (const registration of registrations) {
-          registration.unregister().then(() => {
-            console.log('Old Service Worker unregistered');
-          });
-        }
-      }).catch(error => {
-        console.error('Error unregistering old Service Workers:', error);
-      });
-
-      navigator.serviceWorker.register('./sw.js').then(registration => {
-        console.log('Service Worker registered with scope:', registration.scope);
-      }).catch(error => {
-        console.error('Service Worker registration failed:', error);
-        showToast('Service Worker registration failed: ' + error.message);
       });
     }
+    
+    // Show login form
+    function showLogin() {
+      loginCard.classList.remove('hidden');
+      dashboardCard.classList.add('hidden');
+      loginEmail.value = '';
+      loginPassword.value = '';
+      loginError.textContent = '';
+    }
+    
+    // Show dashboard
+    function showDashboard() {
+      loginCard.classList.add('hidden');
+      dashboardCard.classList.remove('hidden');
+      productName.value = '';
+      productPrice.value = '';
+      productBarcode.value = '';
+      saveError.textContent = '';
+      saveSuccess.textContent = '';
+    }
+    
+    // Handle login
+    async function handleLogin() {
+      const email = loginEmail.value.trim();
+      const password = loginPassword.value.trim();
+      
+      if (!email || !password) {
+        loginError.textContent = 'Please enter both email and password';
+        return;
+      }
+      
+      try {
+        loginBtn.innerHTML = '<span class="loading"></span> Logging in...';
+        loginError.textContent = '';
+        
+        await auth.signInWithEmailAndPassword(email, password);
+        
+        // Success - auth state change will handle the UI update
+      } catch (error) {
+        console.error('Login error:', error);
+        loginError.textContent = error.message;
+        loginBtn.textContent = 'Login';
+      }
+    }
+    
+    // Handle product save
+    async function handleSaveProduct() {
+      const name = productName.value.trim();
+      const price = parseFloat(productPrice.value);
+      const barcode = productBarcode.value.trim();
+      
+      // Validation
+      if (!name) {
+        saveError.textContent = 'Please enter a product name';
+        return;
+      }
+      
+      if (isNaN(price) || price <= 0) {
+        saveError.textContent = 'Please enter a valid price';
+        return;
+      }
+      
+      if (!barcode) {
+        saveError.textContent = 'Please enter a barcode';
+        return;
+      }
+      
+      try {
+        saveBtn.innerHTML = '<span class="loading"></span> Saving...';
+        saveError.textContent = '';
+        saveSuccess.textContent = '';
+        
+        // Save to Firebase
+        const productRef = database.ref(`products/${barcode}`);
+        await productRef.set({
+          name,
+          price,
+          barcode
+        });
+        
+        // Show success message
+        saveSuccess.textContent = 'Product saved successfully!';
+        
+        // Clear form (except barcode for quick edits)
+        productName.value = '';
+        productPrice.value = '';
+        productName.focus();
+        
+        saveBtn.textContent = 'Save Product';
+      } catch (error) {
+        console.error('Save error:', error);
+        saveError.textContent = 'Failed to save product: ' + error.message;
+        saveBtn.textContent = 'Save Product';
+      }
+    }
+    
+    // Handle logout
+    async function handleLogout() {
+      try {
+        await auth.signOut();
+        // Auth state change will handle the UI update
+      } catch (error) {
+        console.error('Logout error:', error);
+        saveError.textContent = 'Failed to logout: ' + error.message;
+      }
+    }
+    
+    // Start the app
+    document.addEventListener('DOMContentLoaded', initApp);
   </script>
 </body>
 </html>
