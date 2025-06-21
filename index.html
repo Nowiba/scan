@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1e40af">
+  <title>Product Scanner PWA</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="https://via.placeholder.com/192x192.png?text=App+Icon">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js"></script>
+  <script src="https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/idb@8.0.0/build/umd.js"></script>
+  <style>
+    body { background: linear-gradient(to bottom, #1e40af, #3b82f6); min-height: 100vh; }
+    .toast { transition: all 0.3s ease-in-out; transform: translateY(-100px); opacity: 0; }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .modal { transition: all 0.3s ease-in-out; transform: scale(0.7); opacity: 0; }
+    .modal.show { transform: scale(1); opacity: 1; }
+    .search-result { transition: all 0.2s ease; }
+    .search-result:hover { transform: scale(1.02); }
+    #video { width: 100%; max-height: 400px; object-fit: cover; }
+  </style>
+</head>
+<body class="flex flex-col items-center text-white font-sans">
+  <div id="toast" class="toast fixed top-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg z-50"></div>
+  <div class="fixed top-4 left-4 z-20">
+    <button id="menuBtn" class="text-white text-3xl focus:outline-none">☰</button>
+  </div>
+  <div id="loginModal" class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-30">
+    <div class="bg-white text-gray-800 p-6 rounded-lg w-11/12 max-w-md">
+      <h2 class="text-2xl font-bold mb-4">Admin Login</h2>
+      <input id="email" type="email" placeholder="Email" class="w-full p-2 mb-4 border rounded">
+      <input id="password" type="password" placeholder="Password" class="w-full p-2 mb-4 border rounded">
+      <button id="loginBtn" class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition">Login</button>
+      <button id="closeModal" class="w-full mt-2 text-gray-600 hover:underline">Close</button>
+    </div>
+  </div>
+  <div class="w-11/12 max-w-lg mt-16">
+    <input id="searchInput" type="text" placeholder="Search products..." class="w-full p-3 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+    <div id="searchResults" class="mt-2 space-y-2"></div>
+  </div>
+  <button id="scanBtn" class="mt-4 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition">Scan Barcode</button>
+  <div id="videoContainer" class="hidden mt-4 w-11/12 max-w-lg">
+    <video id="video" class="rounded-lg shadow-lg"></video>
+    <button id="stopScanBtn" class="mt-2 w-full bg-red-600 text-white p-2 rounded-lg hover:bg-red-700 transition">Stop Scanning</button>
+  </div>
+  <button id="syncBtn" class="mt-4 bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition">Sync Now</button>
+  <div id="productDetails" class="mt-4 w-11/12 max-w-lg text-center"></div>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDdjJKO4eeIWtKKUKiuT9USPFt3eyFnVuSQ",
+      authDomain: "scan-prod1.firebaseapp.com",
+      databaseURL: "https://scan-prod1-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "scan-prod1",
+      storageBucket: "scan-prod1.appspot.com",
+      messagingSenderId: "197976973628",
+      appId: "1:197976973628:web:73bdf954ae78017b813e39"
+    };
+    try {
+      firebase.initializeApp(firebaseConfig);
+      console.log('Firebase initialized');
+    } catch (error) {
+      console.error('Firebase initialization failed:', error);
+    }
+    const auth = firebase.auth();
+    const db = firebase.database();
+    let codeReader = null;
+    const dbPromise = idb.openDB('productsDB', 1, {
+      upgrade(db) {
+        if (!db.objectStoreNames.contains('products')) {
+          db.createObjectStore('products', { keyPath: 'barcode' });
+        }
+      }
+    });
+    function showToast(message, duration = 3000) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), duration);
+    }
+    async function syncProducts() {
+      try {
+        showToast('Syncing products...');
+        const snapshot = await db.ref('products').once('value');
+        const products = snapshot.val() || {};
+        const idbDb = await dbPromise;
+        const tx = idbDb.transaction('products', 'readwrite');
+        const store = tx.objectStore('products');
+        await store.clear();
+        for (const barcode in products) {
+          await store.put(products[barcode]);
+        }
+        await tx.done;
+        showToast('Sync completed!');
+      } catch (error) {
+        console.error('Sync error:', error);
+        showToast('Sync failed: ' + error.message);
+      }
+    }
+    async function searchProducts(query) {
+      const resultsDiv = document.getElementById('searchResults');
+      resultsDiv.innerHTML = '';
+      if (!query) return;
+      try {
+        const idbDb = await dbPromise;
+        const tx = idbDb.transaction('products', 'readonly');
+        const store = tx.objectStore('products');
+        const products = await store.getAll();
+        const filtered = products.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
+        filtered.forEach(product => {
+          const div = document.createElement('div');
+          div.className = 'search-result bg-white text-gray-800 p-3 rounded-lg shadow';
+          div.innerHTML = `<strong>${product.name}</strong> - $${product.price}`;
+          resultsDiv.appendChild(div);
+        });
+      } catch (error) {
+        console.error('Search error:', error);
+        showToast('Search failed: ' + error.message);
+      }
+    }
+    async function startScanner() {
+      if (!navigator.mediaDevices || !window.ZXing) {
+        showToast('Camera or ZXing library not available');
+        return;
+      }
+      try {
+        codeReader = new ZXing.BrowserMultiFormatReader();
+        document.getElementById('videoContainer').classList.remove('hidden');
+        await codeReader.decodeFromVideoDevice(null, 'video', async (result) => {
+          if (result) {
+            stopScanner();
+            const barcode = result.text;
+            const idb = await dbPromise;
+            const product = await idb.get('products', barcode);
+            const detailsDiv = document.getElementById('productDetails');
+            if (product) {
+              detailsDiv.innerHTML = `
+                <div class="bg-white text-gray-800 p-4 rounded-lg shadow">
+                  <h3 class="text-xl font-bold">${product.name}</h3>
+                  <p>Price: product$.price.toFixed(2)}</p>
+                  <p>Barcode: ${product.barcode}</p>
+                </div>
+              `;
+              showToast('Product found!');
+            } else {
+              detailsDiv.innerHTML = '';
+              showToast('Product not found.');
+            }
+          }
+        });
+      } catch (error) {
+        console.error('Scanner error:', error);
+        stopScanner();
+        showToast('Scan failed: ' + error.message);
+      }
+    }
+    function stopScanner() {
+      if (codeReader) {
+        codeReader.reset();
+        document.getElementById('videoContainer').classList.add('hidden');
+      }
+    }
+    document.getElementById('searchInput').addEventListener('input', e => searchProducts(e.target.value));
+    document.getElementById('scanBtn').addEventListener('click', startScanner);
+    document.getElementById('stopScanBtn').addEventListener('click', stopScanner);
+    document.getElementById('syncBtn').addEventListener('click', syncProducts);
+    document.getElementById('menuBtn').addEventListener('click', () => {
+      document.getElementById('loginModal').classList.remove('hidden');
+      document.getElementById('loginModal').classList.add('show');
+    });
+    document.getElementById('closeModal').addEventListener('click', () => {
+      document.getElementById('loginModal').classList.remove('show');
+      setTimeout(() => document.getElementById('loginModal').classList.add('hidden'), 300);
+    });
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      try {
+        await auth.signInWithEmailAndPassword(email, password);
+        console.log('Login successful');
+        window.location.href = 'admin.html';
+      } catch (error) {
+        console.error('Login error:', error);
+        showToast('Login failed: ' + error.message);
+      }
+    });
+    syncProducts().catch(console.error);
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').then(() => {
+        console.log('Service Worker registered');
+      }).catch(error => {
+        console.error('Service Worker registration failed:', error);
+      });
+    }
+  </script>
+</body>
+</html>
