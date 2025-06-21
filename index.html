@@ -3,199 +3,807 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#1e40af">
-  <title>Product Scanner PWA</title>
-  <link rel="manifest" href="manifest.json">
-  <link rel="icon" type="image/png" href="https://via.placeholder.com/192x192.png?text=App+Icon">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js"></script>
-  <script src="https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/idb@8.0.0/build/umd.js"></script>
+  <title>Product Scanner</title>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.1"></script>
   <style>
-    body { background: linear-gradient(to bottom, #1e40af, #3b82f6); min-height: 100vh; }
-    .toast { transition: all 0.3s ease-in-out; transform: translateY(-100px); opacity: 0; }
-    .toast.show { transform: translateY(0); opacity: 1; }
-    .modal { transition: all 0.3s ease-in-out; transform: scale(0.7); opacity: 0; }
-    .modal.show { transform: scale(1); opacity: 1; }
-    .search-result { transition: all 0.2s ease; }
-    .search-result:hover { transform: scale(1.02); }
-    #video { width: 100%; max-height: 400px; object-fit: cover; }
+    :root {
+      --primary-color: #4285f4;
+      --secondary-color: #34a853;
+      --error-color: #ea4335;
+      --text-color: #333;
+      --light-gray: #f5f5f5;
+      --dark-gray: #757575;
+      --shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    }
+    
+    body {
+      background-color: #f9f9f9;
+      color: var(--text-color);
+      line-height: 1.6;
+      padding: 0;
+      margin: 0;
+      min-height: 100vh;
+    }
+    
+    .container {
+      max-width: 100%;
+      padding: 15px;
+      margin: 0 auto;
+    }
+    
+    header {
+      position: sticky;
+      top: 0;
+      background-color: white;
+      padding: 10px 15px;
+      box-shadow: var(--shadow);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .logo {
+      font-weight: bold;
+      font-size: 1.2rem;
+      color: var(--primary-color);
+    }
+    
+    .search-container {
+      flex-grow: 1;
+      margin: 0 15px;
+      position: relative;
+    }
+    
+    #search-input {
+      width: 100%;
+      padding: 10px 15px;
+      border: 1px solid #ddd;
+      border-radius: 20px;
+      font-size: 1rem;
+      outline: none;
+      transition: border 0.3s;
+    }
+    
+    #search-input:focus {
+      border-color: var(--primary-color);
+    }
+    
+    #search-results {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background-color: white;
+      border-radius: 0 0 10px 10px;
+      box-shadow: var(--shadow);
+      max-height: 300px;
+      overflow-y: auto;
+      z-index: 10;
+      display: none;
+    }
+    
+    .search-item {
+      padding: 10px 15px;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+    }
+    
+    .search-item:hover {
+      background-color: var(--light-gray);
+    }
+    
+    .search-item-name {
+      font-weight: bold;
+    }
+    
+    .search-item-price {
+      color: var(--secondary-color);
+      font-size: 0.9rem;
+    }
+    
+    .menu-btn {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--text-color);
+    }
+    
+    .main-content {
+      padding: 20px 0;
+    }
+    
+    .section-title {
+      font-size: 1.2rem;
+      margin-bottom: 15px;
+      color: var(--dark-gray);
+    }
+    
+    .btn {
+      display: inline-block;
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 5px;
+      font-size: 1rem;
+      cursor: pointer;
+      text-align: center;
+      transition: background-color 0.3s;
+      margin: 5px 0;
+      width: 100%;
+    }
+    
+    .btn:hover {
+      background-color: #3367d6;
+    }
+    
+    .btn-secondary {
+      background-color: var(--secondary-color);
+    }
+    
+    .btn-secondary:hover {
+      background-color: #2d9249;
+    }
+    
+    .btn-danger {
+      background-color: var(--error-color);
+    }
+    
+    .btn-danger:hover {
+      background-color: #d33426;
+    }
+    
+    .scanner-container {
+      margin: 20px 0;
+      position: relative;
+      display: none;
+    }
+    
+    #scanner-video {
+      width: 100%;
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+    }
+    
+    .scanner-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: rgba(0,0,0,0.5);
+    }
+    
+    .scanner-frame {
+      width: 70%;
+      height: 200px;
+      border: 3px solid var(--secondary-color);
+      border-radius: 10px;
+    }
+    
+    .product-display {
+      background-color: white;
+      border-radius: 10px;
+      padding: 20px;
+      margin: 20px 0;
+      box-shadow: var(--shadow);
+      display: none;
+    }
+    
+    .product-name {
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    
+    .product-price {
+      font-size: 1.8rem;
+      color: var(--secondary-color);
+      font-weight: bold;
+    }
+    
+    .product-barcode {
+      color: var(--dark-gray);
+      font-size: 0.9rem;
+      margin-top: 10px;
+    }
+    
+    .sync-status {
+      font-size: 0.9rem;
+      color: var(--dark-gray);
+      margin-top: 20px;
+      text-align: center;
+    }
+    
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      display: none;
+    }
+    
+    .modal-content {
+      background-color: white;
+      padding: 20px;
+      border-radius: 10px;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: var(--shadow);
+    }
+    
+    .modal-title {
+      font-size: 1.3rem;
+      margin-bottom: 20px;
+      color: var(--primary-color);
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+    
+    .form-group input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-size: 1rem;
+    }
+    
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+    
+    .error-message {
+      color: var(--error-color);
+      font-size: 0.9rem;
+      margin-top: 10px;
+      text-align: center;
+    }
+    
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 1s ease-in-out infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .not-found {
+      text-align: center;
+      padding: 20px;
+      color: var(--error-color);
+      display: none;
+    }
+    
+    .offline-banner {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-color: #ff9800;
+      color: white;
+      padding: 10px;
+      text-align: center;
+      display: none;
+      z-index: 100;
+    }
+    
+    @media (min-width: 768px) {
+      .container {
+        max-width: 750px;
+      }
+      
+      .btn {
+        width: auto;
+      }
+    }
   </style>
 </head>
-<body class="flex flex-col items-center text-white font-sans">
-  <div id="toast" class="toast fixed top-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg z-50"></div>
-  <div class="fixed top-4 left-4 z-20">
-    <button id="menuBtn" class="text-white text-3xl focus:outline-none">☰</button>
-  </div>
-  <div id="loginModal" class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-30">
-    <div class="bg-white text-gray-800 p-6 rounded-lg w-11/12 max-w-md">
-      <h2 class="text-2xl font-bold mb-4">Admin Login</h2>
-      <input id="email" type="email" placeholder="Email" class="w-full p-2 mb-4 border rounded">
-      <input id="password" type="password" placeholder="Password" class="w-full p-2 mb-4 border rounded">
-      <button id="loginBtn" class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition">Login</button>
-      <button id="closeModal" class="w-full mt-2 text-gray-600 hover:underline">Close</button>
+<body>
+  <header>
+    <div class="logo">ProductScan</div>
+    <div class="search-container">
+      <input type="text" id="search-input" placeholder="Search products...">
+      <div id="search-results"></div>
+    </div>
+    <button class="menu-btn" id="menu-btn">☰</button>
+  </header>
+  
+  <div class="container">
+    <div class="main-content">
+      <button id="scan-btn" class="btn btn-secondary">📷 Scan Barcode</button>
+      <button id="sync-btn" class="btn">🔄 Sync Now</button>
+      
+      <div class="scanner-container" id="scanner-container">
+        <video id="scanner-video" playsinline></video>
+        <div class="scanner-overlay">
+          <div class="scanner-frame"></div>
+        </div>
+      </div>
+      
+      <div class="product-display" id="product-display">
+        <div class="product-name" id="product-name"></div>
+        <div class="product-price" id="product-price"></div>
+        <div class="product-barcode" id="product-barcode"></div>
+      </div>
+      
+      <div class="not-found" id="not-found">
+        Product not found in database
+      </div>
+      
+      <div class="sync-status" id="sync-status">
+        Last sync: Never
+      </div>
     </div>
   </div>
-  <div class="w-11/12 max-w-lg mt-16">
-    <input id="searchInput" type="text" placeholder="Search products..." class="w-full p-3 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
-    <div id="searchResults" class="mt-2 space-y-2"></div>
+  
+  <div class="offline-banner" id="offline-banner">
+    You are currently offline. Some features may be limited.
   </div>
-  <button id="scanBtn" class="mt-4 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition">Scan Barcode</button>
-  <div id="videoContainer" class="hidden mt-4 w-11/12 max-w-lg">
-    <video id="video" class="rounded-lg shadow-lg"></video>
-    <button id="stopScanBtn" class="mt-2 w-full bg-red-600 text-white p-2 rounded-lg hover:bg-red-700 transition">Stop Scanning</button>
+  
+  <div class="modal" id="login-modal">
+    <div class="modal-content">
+      <div class="modal-title">Admin Login</div>
+      <div class="form-group">
+        <label for="login-email">Email</label>
+        <input type="email" id="login-email" placeholder="admin@example.com">
+      </div>
+      <div class="form-group">
+        <label for="login-password">Password</label>
+        <input type="password" id="login-password" placeholder="Password">
+      </div>
+      <div class="error-message" id="login-error"></div>
+      <div class="modal-actions">
+        <button id="cancel-login" class="btn btn-danger" style="margin-right: 10px;">Cancel</button>
+        <button id="submit-login" class="btn">Login</button>
+      </div>
+    </div>
   </div>
-  <button id="syncBtn" class="mt-4 bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition">Sync Now</button>
-  <div id="productDetails" class="mt-4 w-11/12 max-w-lg text-center"></div>
+  
   <script>
+    // Firebase configuration
     const firebaseConfig = {
-      apiKey: "AIzaSyDdjJKO4eeIWtKKUKiuT9USPFt3eyFnVuSQ",
-      authDomain: "scan-prod1.firebaseapp.com",
-      databaseURL: "https://scan-prod1-default-rtdb.europe-west1.firebasedatabase.app",
-      projectId: "scan-prod1",
-      storageBucket: "scan-prod1.appspot.com",
-      messagingSenderId: "197976973628",
-      appId: "1:197976973628:web:73bdf954ae78017b813e39"
-    };
-    try {
-      firebase.initializeApp(firebaseConfig);
-      console.log('Firebase initialized');
-    } catch (error) {
-      console.error('Firebase initialization failed:', error);
-    }
+  apiKey: "AIzaSyDdjJKO4eeIWtKKUKiuT9USPF3eyFnVuSQ",
+  authDomain: "scan-prod1.firebaseapp.com",
+  databaseURL: "https://scan-prod1-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "scan-prod1",
+  storageBucket: "scan-prod1.firebasestorage.app",
+  messagingSenderId: "197976973628",
+  appId: "1:197976973628:web:73bdf954ae78017b813e39"
+};
+    
+    // Initialize Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
     const auth = firebase.auth();
-    const db = firebase.database();
-    let codeReader = null;
-    const dbPromise = idb.openDB('productsDB', 1, {
-      upgrade(db) {
-        if (!db.objectStoreNames.contains('products')) {
-          db.createObjectStore('products', { keyPath: 'barcode' });
-        }
-      }
-    });
-    function showToast(message, duration = 3000) {
-      const toast = document.getElementById('toast');
-      toast.textContent = message;
-      toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), duration);
-    }
-    async function syncProducts() {
-      try {
-        showToast('Syncing products...');
-        const snapshot = await db.ref('products').once('value');
-        const products = snapshot.val() || {};
-        const idbDb = await dbPromise;
-        const tx = idbDb.transaction('products', 'readwrite');
-        const store = tx.objectStore('products');
-        await store.clear();
-        for (const barcode in products) {
-          await store.put(products[barcode]);
-        }
-        await tx.done;
-        showToast('Sync completed!');
-      } catch (error) {
-        console.error('Sync error:', error);
-        showToast('Sync failed: ' + error.message);
-      }
-    }
-    async function searchProducts(query) {
-      const resultsDiv = document.getElementById('searchResults');
-      resultsDiv.innerHTML = '';
-      if (!query) return;
-      try {
-        const idbDb = await dbPromise;
-        const tx = idbDb.transaction('products', 'readonly');
-        const store = tx.objectStore('products');
-        const products = await store.getAll();
-        const filtered = products.filter(p => p.name.toLowerCase().includes(query.toLowerCase()));
-        filtered.forEach(product => {
-          const div = document.createElement('div');
-          div.className = 'search-result bg-white text-gray-800 p-3 rounded-lg shadow';
-          div.innerHTML = `<strong>${product.name}</strong> - $${product.price}`;
-          resultsDiv.appendChild(div);
-        });
-      } catch (error) {
-        console.error('Search error:', error);
-        showToast('Search failed: ' + error.message);
-      }
-    }
-    async function startScanner() {
-      if (!navigator.mediaDevices || !window.ZXing) {
-        showToast('Camera or ZXing library not available');
-        return;
-      }
-      try {
-        codeReader = new ZXing.BrowserMultiFormatReader();
-        document.getElementById('videoContainer').classList.remove('hidden');
-        await codeReader.decodeFromVideoDevice(null, 'video', async (result) => {
-          if (result) {
-            stopScanner();
-            const barcode = result.text;
-            const idb = await dbPromise;
-            const product = await idb.get('products', barcode);
-            const detailsDiv = document.getElementById('productDetails');
-            if (product) {
-              detailsDiv.innerHTML = `
-                <div class="bg-white text-gray-800 p-4 rounded-lg shadow">
-                  <h3 class="text-xl font-bold">${product.name}</h3>
-                  <p>Price: product$.price.toFixed(2)}</p>
-                  <p>Barcode: ${product.barcode}</p>
-                </div>
-              `;
-              showToast('Product found!');
-            } else {
-              detailsDiv.innerHTML = '';
-              showToast('Product not found.');
-            }
+    
+    // DOM elements
+    const searchInput = document.getElementById('search-input');
+    const searchResults = document.getElementById('search-results');
+    const menuBtn = document.getElementById('menu-btn');
+    const scanBtn = document.getElementById('scan-btn');
+    const syncBtn = document.getElementById('sync-btn');
+    const scannerContainer = document.getElementById('scanner-container');
+    const scannerVideo = document.getElementById('scanner-video');
+    const productDisplay = document.getElementById('product-display');
+    const productName = document.getElementById('product-name');
+    const productPrice = document.getElementById('product-price');
+    const productBarcode = document.getElementById('product-barcode');
+    const notFound = document.getElementById('not-found');
+    const syncStatus = document.getElementById('sync-status');
+    const offlineBanner = document.getElementById('offline-banner');
+    const loginModal = document.getElementById('login-modal');
+    const loginEmail = document.getElementById('login-email');
+    const loginPassword = document.getElementById('login-password');
+    const loginError = document.getElementById('login-error');
+    const cancelLogin = document.getElementById('cancel-login');
+    const submitLogin = document.getElementById('submit-login');
+    
+    // Variables
+    let codeScanner = null;
+    let isScanning = false;
+    let db = null;
+    
+    // Initialize IndexedDB
+    function initDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open('ProductDB', 1);
+        
+        request.onerror = (event) => {
+          console.error('IndexedDB error:', event.target.error);
+          reject('Failed to open database');
+        };
+        
+        request.onsuccess = (event) => {
+          db = event.target.result;
+          resolve(db);
+        };
+        
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains('products')) {
+            const store = db.createObjectStore('products', { keyPath: 'barcode' });
+            store.createIndex('name', 'name', { unique: false });
           }
-        });
-      } catch (error) {
-        console.error('Scanner error:', error);
-        stopScanner();
-        showToast('Scan failed: ' + error.message);
-      }
-    }
-    function stopScanner() {
-      if (codeReader) {
-        codeReader.reset();
-        document.getElementById('videoContainer').classList.add('hidden');
-      }
-    }
-    document.getElementById('searchInput').addEventListener('input', e => searchProducts(e.target.value));
-    document.getElementById('scanBtn').addEventListener('click', startScanner);
-    document.getElementById('stopScanBtn').addEventListener('click', stopScanner);
-    document.getElementById('syncBtn').addEventListener('click', syncProducts);
-    document.getElementById('menuBtn').addEventListener('click', () => {
-      document.getElementById('loginModal').classList.remove('hidden');
-      document.getElementById('loginModal').classList.add('show');
-    });
-    document.getElementById('closeModal').addEventListener('click', () => {
-      document.getElementById('loginModal').classList.remove('show');
-      setTimeout(() => document.getElementById('loginModal').classList.add('hidden'), 300);
-    });
-    document.getElementById('loginBtn').addEventListener('click', async () => {
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
-      try {
-        await auth.signInWithEmailAndPassword(email, password);
-        console.log('Login successful');
-        window.location.href = 'admin.html';
-      } catch (error) {
-        console.error('Login error:', error);
-        showToast('Login failed: ' + error.message);
-      }
-    });
-    syncProducts().catch(console.error);
-
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js').then(() => {
-        console.log('Service Worker registered');
-      }).catch(error => {
-        console.error('Service Worker registration failed:', error);
+        };
       });
     }
+    
+    // Add product to IndexedDB
+    function addProductToDB(product) {
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['products'], 'readwrite');
+        const store = transaction.objectStore('products');
+        const request = store.put(product);
+        
+        request.onsuccess = () => resolve();
+        request.onerror = (event) => reject(event.target.error);
+      });
+    }
+    
+    // Get product by barcode from IndexedDB
+    function getProductByBarcode(barcode) {
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['products'], 'readonly');
+        const store = transaction.objectStore('products');
+        const request = store.get(barcode);
+        
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = (event) => reject(event.target.error);
+      });
+    }
+    
+    // Search products by name in IndexedDB
+    function searchProductsByName(query) {
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['products'], 'readonly');
+        const store = transaction.objectStore('products');
+        const index = store.index('name');
+        const request = index.getAll();
+        
+        request.onsuccess = () => {
+          const products = request.result.filter(product => 
+            product.name.toLowerCase().includes(query.toLowerCase())
+          );
+          resolve(products);
+        };
+        
+        request.onerror = (event) => reject(event.target.error);
+      });
+    }
+    
+    // Get all products from IndexedDB
+    function getAllProductsFromDB() {
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['products'], 'readonly');
+        const store = transaction.objectStore('products');
+        const request = store.getAll();
+        
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = (event) => reject(event.target.error);
+      });
+    }
+    
+    // Clear all products from IndexedDB
+    function clearProductsDB() {
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['products'], 'readwrite');
+        const store = transaction.objectStore('products');
+        const request = store.clear();
+        
+        request.onsuccess = () => resolve();
+        request.onerror = (event) => reject(event.target.error);
+      });
+    }
+    
+    // Sync products from Firebase to IndexedDB
+    async function syncProducts() {
+      try {
+        if (!navigator.onLine) {
+          throw new Error('No internet connection');
+        }
+        
+        syncBtn.innerHTML = '<span class="loading"></span> Syncing...';
+        
+        const snapshot = await database.ref('products').once('value');
+        const products = snapshot.val();
+        
+        await clearProductsDB();
+        
+        if (products) {
+          const promises = Object.entries(products).map(([barcode, product]) => {
+            return addProductToDB({ barcode, ...product });
+          });
+          
+          await Promise.all(promises);
+        }
+        
+        const lastSync = new Date().toLocaleString();
+        localStorage.setItem('lastSync', lastSync);
+        syncStatus.textContent = `Last sync: ${lastSync}`;
+        syncBtn.textContent = '🔄 Sync Now';
+        
+        return true;
+      } catch (error) {
+        console.error('Sync failed:', error);
+        syncBtn.textContent = '🔄 Sync Now';
+        showError('Sync failed. ' + error.message);
+        return false;
+      }
+    }
+    
+    // Show product information
+    function showProduct(product) {
+      productName.textContent = product.name;
+      productPrice.textContent = `$${product.price.toFixed(2)}`;
+      productBarcode.textContent = `Barcode: ${product.barcode}`;
+      productDisplay.style.display = 'block';
+      notFound.style.display = 'none';
+    }
+    
+    // Show not found message
+    function showNotFound() {
+      productDisplay.style.display = 'none';
+      notFound.style.display = 'block';
+    }
+    
+    // Show error message
+    function showError(message) {
+      const errorElement = document.createElement('div');
+      errorElement.className = 'error-message';
+      errorElement.textContent = message;
+      
+      const container = document.querySelector('.container');
+      container.insertBefore(errorElement, container.firstChild);
+      
+      setTimeout(() => {
+        errorElement.remove();
+      }, 5000);
+    }
+    
+    // Initialize barcode scanner
+    async function initScanner() {
+      try {
+        codeScanner = new ZXing.BrowserMultiFormatReader();
+        
+        const videoInputs = await ZXing.BrowserCodeReader.listVideoInputDevices();
+        const backCamera = videoInputs.find(device => 
+          device.label.toLowerCase().includes('back') || 
+          device.label.toLowerCase().includes('rear')
+        );
+        
+        const deviceId = backCamera ? backCamera.deviceId : undefined;
+        
+        await codeScanner.decodeFromVideoDevice(deviceId, scannerVideo, (result, error) => {
+          if (result) {
+            handleBarcodeScan(result.text);
+          }
+          
+          if (error && !error.message.includes('No barcode')) {
+            console.error('Scan error:', error);
+            stopScanner();
+            showError('Scan failed: ' + error.message);
+          }
+        });
+        
+        scannerContainer.style.display = 'block';
+        isScanning = true;
+      } catch (error) {
+        console.error('Scanner init failed:', error);
+        showError('Failed to initialize scanner: ' + error.message);
+      }
+    }
+    
+    // Stop barcode scanner
+    function stopScanner() {
+      if (codeScanner) {
+        codeScanner.reset();
+        codeScanner = null;
+      }
+      
+      scannerContainer.style.display = 'none';
+      isScanning = false;
+      
+      if (scannerVideo.srcObject) {
+        scannerVideo.srcObject.getTracks().forEach(track => track.stop());
+        scannerVideo.srcObject = null;
+      }
+    }
+    
+    // Handle barcode scan
+    async function handleBarcodeScan(barcode) {
+      try {
+        const product = await getProductByBarcode(barcode);
+        
+        if (product) {
+          showProduct(product);
+        } else {
+          showNotFound();
+        }
+        
+        stopScanner();
+      } catch (error) {
+        console.error('Barcode lookup failed:', error);
+        showError('Failed to lookup product: ' + error.message);
+        stopScanner();
+      }
+    }
+    
+    // Check online status
+    function updateOnlineStatus() {
+      if (navigator.onLine) {
+        offlineBanner.style.display = 'none';
+      } else {
+        offlineBanner.style.display = 'block';
+      }
+    }
+    
+    // Initialize the app
+    async function initApp() {
+      try {
+        await initDB();
+        
+        // Load last sync time
+        const lastSync = localStorage.getItem('lastSync');
+        if (lastSync) {
+          syncStatus.textContent = `Last sync: ${lastSync}`;
+        }
+        
+        // Check if we have any products in IndexedDB
+        const products = await getAllProductsFromDB();
+        if (products.length === 0 && navigator.onLine) {
+          await syncProducts();
+        }
+        
+        // Set up event listeners
+        searchInput.addEventListener('input', async (e) => {
+          const query = e.target.value.trim();
+          
+          if (query.length < 2) {
+            searchResults.style.display = 'none';
+            return;
+          }
+          
+          try {
+            const results = await searchProductsByName(query);
+            
+            searchResults.innerHTML = '';
+            
+            if (results.length > 0) {
+              results.forEach(product => {
+                const item = document.createElement('div');
+                item.className = 'search-item';
+                item.innerHTML = `
+                  <div class="search-item-name">${product.name}</div>
+                  <div class="search-item-price">$${product.price.toFixed(2)}</div>
+                `;
+                
+                item.addEventListener('click', () => {
+                  showProduct(product);
+                  searchInput.value = '';
+                  searchResults.style.display = 'none';
+                });
+                
+                searchResults.appendChild(item);
+              });
+              
+              searchResults.style.display = 'block';
+            } else {
+              searchResults.style.display = 'none';
+            }
+          } catch (error) {
+            console.error('Search failed:', error);
+          }
+        });
+        
+        document.addEventListener('click', (e) => {
+          if (e.target !== searchInput) {
+            searchResults.style.display = 'none';
+          }
+        });
+        
+        scanBtn.addEventListener('click', () => {
+          if (isScanning) {
+            stopScanner();
+          } else {
+            initScanner();
+          }
+        });
+        
+        syncBtn.addEventListener('click', syncProducts);
+        
+        menuBtn.addEventListener('click', () => {
+          loginModal.style.display = 'flex';
+        });
+        
+        cancelLogin.addEventListener('click', () => {
+          loginModal.style.display = 'none';
+          loginError.textContent = '';
+          loginEmail.value = '';
+          loginPassword.value = '';
+        });
+        
+        submitLogin.addEventListener('click', async () => {
+          const email = loginEmail.value.trim();
+          const password = loginPassword.value.trim();
+          
+          if (!email || !password) {
+            loginError.textContent = 'Please enter both email and password';
+            return;
+          }
+          
+          try {
+            submitLogin.innerHTML = '<span class="loading"></span> Logging in...';
+            
+            await auth.signInWithEmailAndPassword(email, password);
+            
+            // Redirect to admin page
+            window.location.href = 'admin.html';
+          } catch (error) {
+            console.error('Login failed:', error);
+            loginError.textContent = error.message;
+            submitLogin.textContent = 'Login';
+          }
+        });
+        
+        // Handle online/offline status
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+        updateOnlineStatus();
+        
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+          try {
+            await navigator.serviceWorker.register('sw.js');
+            console.log('Service Worker registered');
+          } catch (error) {
+            console.error('Service Worker registration failed:', error);
+          }
+        }
+      } catch (error) {
+        console.error('App initialization failed:', error);
+        showError('Failed to initialize app: ' + error.message);
+      }
+    }
+    
+    // Start the app
+    document.addEventListener('DOMContentLoaded', initApp);
   </script>
 </body>
 </html>
