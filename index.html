@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Advanced Product Scanner</title>
+  <title>Smooth Product Scanner</title>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -651,25 +651,22 @@
     
     // Variables
     let isScanning = false;
-    let scannerInterval = null;
-    let canvasContext = null;
     let db = null;
     let stream = null;
     let debugMode = true;
     let debugPanelVisible = false;
     let scanAttempts = 0;
     let lastScannedBarcode = null;
-    let lastFrameTime = 0;
     let frameCount = 0;
     let fps = 0;
     let fpsInterval = 0;
-    let lastScanTime = 0;
     let isOnline = navigator.onLine;
+    let quaggaInitialized = false;
 
     // Initialize IndexedDB
     function initDB() {
       return new Promise((resolve, reject) => {
-        const request = indexedDB.open('ProductDB', 5); // Increased version to force update
+        const request = indexedDB.open('ProductDB', 5);
         
         request.onerror = (event) => {
           console.error('IndexedDB error:', event.target.error);
@@ -924,21 +921,23 @@
       debugPanel.style.display = debugPanelVisible ? 'block' : 'none';
     }
     
-    // Initialize barcode scanner with MAX quality
+    // Initialize barcode scanner with optimized performance
     async function initScanner() {
       try {
-        // Create canvas for processing
-        const canvas = document.createElement('canvas');
-        canvasContext = canvas.getContext('2d', { willReadFrequently: true });
+        // Stop any existing scanner
+        if (quaggaInitialized) {
+          Quagga.stop();
+          Quagga.offDetected();
+        }
         
-        // Get camera access with MAXIMUM quality settings
+        // Get camera access with optimized settings
         stream = await navigator.mediaDevices.getUserMedia({ 
           video: { 
-            facingMode: "environment", // Prefer back camera
-            width: { ideal: 4096 },    // Max resolution
-            height: { ideal: 2160 },   // Max resolution
-            frameRate: { ideal: 60, max: 60 }, // Max frame rate
-            focusMode: "continuous"    // Continuous autofocus
+            facingMode: "environment",
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            frameRate: { ideal: 60, max: 60 },
+            focusMode: "continuous"
           } 
         });
         
@@ -949,27 +948,23 @@
         dbIndicator.style.display = 'block';
         isScanning = true;
         scanAttempts = 0;
-        lastFrameTime = performance.now();
+        
+        // Start FPS counter
         frameCount = 0;
-        fps = 0;
         fpsInterval = setInterval(() => {
           fps = frameCount;
           frameCount = 0;
           scannerPerformance.textContent = `FPS: ${fps} | Quality: High`;
         }, 1000);
-        showDebug('Scanner initialized with MAX quality settings');
+        
+        showDebug('Scanner initialized with optimized settings');
         
         // Apply the correct orientation for back camera
         scannerVideo.style.transform = 'scaleX(1)';
         
-        // Start scanning when video is playing
+        // Initialize Quagga when video is playing
         scannerVideo.onplaying = () => {
-          showDebug('Video stream started with high quality');
-          
-          // Set canvas dimensions to match video
-          canvas.width = scannerVideo.videoWidth;
-          canvas.height = scannerVideo.videoHeight;
-          showDebug(`Canvas size: ${canvas.width}x${canvas.height}`);
+          showDebug('Video stream started');
           
           // Initialize Quagga for barcode scanning
           Quagga.init({
@@ -978,8 +973,8 @@
               type: "LiveStream",
               target: scannerVideo,
               constraints: {
-                width: canvas.width,
-                height: canvas.height,
+                width: 640,
+                height: 480,
                 facingMode: "environment"
               },
             },
@@ -997,16 +992,23 @@
               ]
             },
             locate: true,
-            frequency: 60 // Max scanning speed
+            frequency: 10,
+            halfSample: true,
+            debug: {
+              drawBoundingBox: false,
+              showFrequency: false,
+              drawScanline: false,
+              showPattern: false
+            }
           }, function(err) {
             if (err) {
-              statusDiv.textContent = "Error initializing scanner: " + err;
               showDebug("Error initializing Quagga: " + err);
               return;
             }
             
             Quagga.start();
-            showDebug("Quagga started with all readers");
+            quaggaInitialized = true;
+            showDebug("Quagga started with optimized settings");
           });
           
           Quagga.onDetected(function(result) {
@@ -1020,7 +1022,7 @@
         console.error('Scanner init failed:', error);
         showDebug('Scanner init failed: ' + error.message);
         
-        // Fallback to lower quality settings if max fails
+        // Fallback to lower quality settings if needed
         if (error.name === 'OverconstrainedError') {
           showDebug('Trying fallback camera settings');
           initScannerFallback();
@@ -1037,17 +1039,19 @@
     // Fallback scanner with reduced quality
     async function initScannerFallback() {
       try {
-        // Create canvas for processing
-        const canvas = document.createElement('canvas');
-        canvasContext = canvas.getContext('2d', { willReadFrequently: true });
+        // Stop any existing scanner
+        if (quaggaInitialized) {
+          Quagga.stop();
+          Quagga.offDetected();
+        }
         
-        // Get camera access with high but not max settings
+        // Get camera access with lower settings
         stream = await navigator.mediaDevices.getUserMedia({ 
           video: { 
             facingMode: "environment",
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-            frameRate: { ideal: 60 },
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            frameRate: { ideal: 30, max: 30 },
             focusMode: "continuous"
           } 
         });
@@ -1059,26 +1063,23 @@
         dbIndicator.style.display = 'block';
         isScanning = true;
         scanAttempts = 0;
-        lastFrameTime = performance.now();
+        
+        // Start FPS counter
         frameCount = 0;
         fpsInterval = setInterval(() => {
           fps = frameCount;
           frameCount = 0;
           scannerPerformance.textContent = `FPS: ${fps} | Quality: Medium`;
         }, 1000);
+        
         showDebug('Scanner initialized with fallback settings');
         
         // Apply the correct orientation for back camera
         scannerVideo.style.transform = 'scaleX(1)';
         
-        // Start scanning when video is playing
+        // Initialize Quagga when video is playing
         scannerVideo.onplaying = () => {
           showDebug('Video stream started with fallback settings');
-          
-          // Set canvas dimensions to match video
-          canvas.width = scannerVideo.videoWidth;
-          canvas.height = scannerVideo.videoHeight;
-          showDebug(`Canvas size: ${canvas.width}x${canvas.height}`);
           
           // Initialize Quagga for barcode scanning
           Quagga.init({
@@ -1087,8 +1088,8 @@
               type: "LiveStream",
               target: scannerVideo,
               constraints: {
-                width: canvas.width,
-                height: canvas.height,
+                width: 640,
+                height: 480,
                 facingMode: "environment"
               },
             },
@@ -1106,16 +1107,23 @@
               ]
             },
             locate: true,
-            frequency: 30
+            frequency: 5,
+            halfSample: true,
+            debug: {
+              drawBoundingBox: false,
+              showFrequency: false,
+              drawScanline: false,
+              showPattern: false
+            }
           }, function(err) {
             if (err) {
-              statusDiv.textContent = "Error initializing scanner: " + err;
               showDebug("Error initializing Quagga: " + err);
               return;
             }
             
             Quagga.start();
-            showDebug("Quagga started with all readers");
+            quaggaInitialized = true;
+            showDebug("Quagga started with fallback settings");
           });
           
           Quagga.onDetected(function(result) {
@@ -1135,14 +1143,10 @@
     
     // Stop barcode scanner
     function stopScanner() {
-      if (Quagga) {
+      if (quaggaInitialized) {
         Quagga.stop();
         Quagga.offDetected();
-      }
-      
-      if (scannerInterval) {
-        clearInterval(scannerInterval);
-        scannerInterval = null;
+        quaggaInitialized = false;
       }
       
       if (fpsInterval) {
