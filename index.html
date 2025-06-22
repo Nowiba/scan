@@ -7,8 +7,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-  <!-- Replaced jsQR with qr-scanner for better performance -->
-  <script src="https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
   <style>
     :root {
       --primary-color: #4285f4;
@@ -203,7 +202,7 @@
       width: 90%;
       max-width: 500px;
       height: 200px;
-      border: 4px solid #00ff88; /* More visible border */
+      border: 4px solid #00ff88;
       border-radius: 10px;
       position: relative;
       overflow: hidden;
@@ -487,6 +486,19 @@
       z-index: 10;
     }
     
+    .db-indicator {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 8px 15px;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      display: none;
+      z-index: 10;
+    }
+    
     @media (min-width: 768px) {
       .container {
         max-width: 750px;
@@ -525,6 +537,7 @@
       <div class="scanner-container" id="scanner-container">
         <div class="scanner-feedback" id="scanner-feedback">Scanning...</div>
         <div class="scanner-performance" id="scanner-performance">FPS: 0 | Quality: High</div>
+        <div class="db-indicator" id="db-indicator">Using: IndexedDB</div>
         <video id="scanner-video" playsinline autoplay></video>
         <div class="scanner-overlay">
           <div class="scanner-frame">
@@ -541,6 +554,7 @@
         <div class="product-name" id="product-name"></div>
         <div class="product-price" id="product-price"></div>
         <div class="product-barcode" id="product-barcode"></div>
+        <div class="product-source" id="product-source"></div>
       </div>
       
       <div class="not-found" id="not-found">
@@ -614,11 +628,13 @@
     const scannerVideo = document.getElementById('scanner-video');
     const scannerFeedback = document.getElementById('scanner-feedback');
     const scannerPerformance = document.getElementById('scanner-performance');
+    const dbIndicator = document.getElementById('db-indicator');
     const closeScanner = document.getElementById('close-scanner');
     const productDisplay = document.getElementById('product-display');
     const productName = document.getElementById('product-name');
     const productPrice = document.getElementById('product-price');
     const productBarcode = document.getElementById('product-barcode');
+    const productSource = document.getElementById('product-source');
     const notFound = document.getElementById('not-found');
     const syncStatus = document.getElementById('sync-status');
     const offlineBanner = document.getElementById('offline-banner');
@@ -635,20 +651,25 @@
     
     // Variables
     let isScanning = false;
-    let qrScanner = null; // qr-scanner instance
+    let scannerInterval = null;
+    let canvasContext = null;
     let db = null;
+    let stream = null;
     let debugMode = true;
     let debugPanelVisible = false;
     let scanAttempts = 0;
     let lastScannedBarcode = null;
+    let lastFrameTime = 0;
     let frameCount = 0;
     let fps = 0;
     let fpsInterval = 0;
+    let lastScanTime = 0;
+    let isOnline = navigator.onLine;
 
     // Initialize IndexedDB
     function initDB() {
       return new Promise((resolve, reject) => {
-        const request = indexedDB.open('ProductDB', 4); // Increased version to force update
+        const request = indexedDB.open('ProductDB', 5); // Increased version to force update
         
         request.onerror = (event) => {
           console.error('IndexedDB error:', event.target.error);
@@ -706,6 +727,33 @@
           showDebug('Error getting product from IndexedDB: ' + event.target.error);
           reject(event.target.error);
         }
+      });
+    }
+    
+    // Get product from Firebase (when online)
+    function getProductFromFirebase(barcode) {
+      return new Promise((resolve, reject) => {
+        if (!isOnline) {
+          resolve(null);
+          return;
+        }
+        
+        database.ref('products/' + barcode).once('value')
+          .then(snapshot => {
+            const product = snapshot.val();
+            if (product) {
+              // Add barcode to product data for consistency
+              product.barcode = barcode;
+              showDebug(`Found product in Firebase: ${barcode}`);
+            } else {
+              showDebug(`Product not found in Firebase: ${barcode}`);
+            }
+            resolve(product);
+          })
+          .catch(error => {
+            showDebug('Firebase error: ' + error.message);
+            reject(error);
+          });
       });
     }
     
@@ -771,7 +819,7 @@
     // Sync products from Firebase to IndexedDB
     async function syncProducts() {
       try {
-        if (!navigator.onLine) {
+        if (!isOnline) {
           showDebug('Sync failed: No internet connection');
           throw new Error('No internet connection');
         }
@@ -820,20 +868,22 @@
     }
     
     // Show product information
-    function showProduct(product) {
+    function showProduct(product, source) {
       productName.textContent = product.name;
       productPrice.textContent = `$${product.price.toFixed(2)}`;
       productBarcode.textContent = `Barcode: ${product.barcode}`;
+      productSource.textContent = `Source: ${source}`;
+      productSource.style.color = source === 'Firebase' ? '#4285f4' : '#34a853';
       productDisplay.style.display = 'block';
       notFound.style.display = 'none';
-      showDebug(`Displaying product: ${product.barcode} - ${product.name}`);
+      showDebug(`Displaying product from ${source}: ${product.barcode} - ${product.name}`);
     }
     
     // Show not found message
     function showNotFound() {
       productDisplay.style.display = 'none';
       notFound.style.display = 'block';
-      showDebug('Product not found in database');
+      showDebug('Product not found in any database');
     }
     
     // Show error message
@@ -874,82 +924,225 @@
       debugPanel.style.display = debugPanelVisible ? 'block' : 'none';
     }
     
-    // Initialize barcode scanner with qr-scanner library
+    // Initialize barcode scanner with MAX quality
     async function initScanner() {
       try {
-        // Set worker path for qr-scanner
-        QrScanner.WORKER_PATH = 'https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner-worker.min.js';
+        // Create canvas for processing
+        const canvas = document.createElement('canvas');
+        canvasContext = canvas.getContext('2d', { willReadFrequently: true });
         
-        // List available cameras
-        const cameras = await QrScanner.listCameras(true);
-        if (cameras.length === 0) {
-          showDebug('No cameras found');
-          showError('No cameras available on this device');
-          return;
-        }
+        // Get camera access with MAXIMUM quality settings
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: "environment", // Prefer back camera
+            width: { ideal: 4096 },    // Max resolution
+            height: { ideal: 2160 },   // Max resolution
+            frameRate: { ideal: 60, max: 60 }, // Max frame rate
+            focusMode: "continuous"    // Continuous autofocus
+          } 
+        });
         
-        // Find back camera or use first available
-        const backCamera = cameras.find(camera => 
-          camera.label.toLowerCase().includes('back') || 
-          camera.label.toLowerCase().includes('rear')
-        );
-        const cameraId = backCamera ? backCamera.id : cameras[0].id;
-        
-        showDebug(`Using camera: ${backCamera ? 'Back' : 'Front'} (${cameraId})`);
-        
-        // Create qr-scanner instance
-        qrScanner = new QrScanner(
-          scannerVideo,
-          result => {
-            showDebug(`Scanned barcode: ${result.data}`);
-            handleBarcodeScan(result.data);
-          },
-          {
-            preferredCamera: cameraId,
-            maxScansPerSecond: 60, // 60 FPS scanning
-            highlightScanRegion: true,
-            highlightCodeOutline: true,
-            returnDetailedScanResult: false,
-            onDecodeError: (error) => {
-              scanAttempts++;
-              scannerFeedback.textContent = `Scanning... (Attempt ${scanAttempts})`;
-              showDebug(`Scan error: ${error}`);
-            }
-          }
-        );
-        
-        // Start scanner
-        await qrScanner.start();
+        scannerVideo.srcObject = stream;
         scannerContainer.style.display = 'flex';
         scannerFeedback.style.display = 'block';
         scannerPerformance.style.display = 'block';
+        dbIndicator.style.display = 'block';
         isScanning = true;
         scanAttempts = 0;
-        
-        // Start FPS counter
+        lastFrameTime = performance.now();
         frameCount = 0;
+        fps = 0;
         fpsInterval = setInterval(() => {
           fps = frameCount;
           frameCount = 0;
           scannerPerformance.textContent = `FPS: ${fps} | Quality: High`;
         }, 1000);
+        showDebug('Scanner initialized with MAX quality settings');
         
-        showDebug('Scanner started with qr-scanner library');
+        // Apply the correct orientation for back camera
+        scannerVideo.style.transform = 'scaleX(1)';
+        
+        // Start scanning when video is playing
+        scannerVideo.onplaying = () => {
+          showDebug('Video stream started with high quality');
+          
+          // Set canvas dimensions to match video
+          canvas.width = scannerVideo.videoWidth;
+          canvas.height = scannerVideo.videoHeight;
+          showDebug(`Canvas size: ${canvas.width}x${canvas.height}`);
+          
+          // Initialize Quagga for barcode scanning
+          Quagga.init({
+            inputStream: {
+              name: "Live",
+              type: "LiveStream",
+              target: scannerVideo,
+              constraints: {
+                width: canvas.width,
+                height: canvas.height,
+                facingMode: "environment"
+              },
+            },
+            decoder: {
+              readers: [
+                "code_128_reader",
+                "ean_reader",
+                "ean_8_reader",
+                "code_39_reader",
+                "code_39_vin_reader",
+                "codabar_reader",
+                "upc_reader",
+                "upc_e_reader",
+                "i2of5_reader"
+              ]
+            },
+            locate: true,
+            frequency: 60 // Max scanning speed
+          }, function(err) {
+            if (err) {
+              statusDiv.textContent = "Error initializing scanner: " + err;
+              showDebug("Error initializing Quagga: " + err);
+              return;
+            }
+            
+            Quagga.start();
+            showDebug("Quagga started with all readers");
+          });
+          
+          Quagga.onDetected(function(result) {
+            const code = result.codeResult.code;
+            showDebug(`Quagga detected barcode: ${code}`);
+            handleBarcodeScan(code);
+          });
+        };
         
       } catch (error) {
         console.error('Scanner init failed:', error);
         showDebug('Scanner init failed: ' + error.message);
-        showError('Failed to start scanner: ' + error.message);
+        
+        // Fallback to lower quality settings if max fails
+        if (error.name === 'OverconstrainedError') {
+          showDebug('Trying fallback camera settings');
+          initScannerFallback();
+        } else {
+          showError('Failed to initialize scanner: ' + error.message);
+          if (error.name === 'NotAllowedError') {
+            showError('Camera access denied. Please allow camera permissions.');
+          }
+          stopScanner();
+        }
+      }
+    }
+    
+    // Fallback scanner with reduced quality
+    async function initScannerFallback() {
+      try {
+        // Create canvas for processing
+        const canvas = document.createElement('canvas');
+        canvasContext = canvas.getContext('2d', { willReadFrequently: true });
+        
+        // Get camera access with high but not max settings
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: "environment",
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            frameRate: { ideal: 60 },
+            focusMode: "continuous"
+          } 
+        });
+        
+        scannerVideo.srcObject = stream;
+        scannerContainer.style.display = 'flex';
+        scannerFeedback.style.display = 'block';
+        scannerPerformance.style.display = 'block';
+        dbIndicator.style.display = 'block';
+        isScanning = true;
+        scanAttempts = 0;
+        lastFrameTime = performance.now();
+        frameCount = 0;
+        fpsInterval = setInterval(() => {
+          fps = frameCount;
+          frameCount = 0;
+          scannerPerformance.textContent = `FPS: ${fps} | Quality: Medium`;
+        }, 1000);
+        showDebug('Scanner initialized with fallback settings');
+        
+        // Apply the correct orientation for back camera
+        scannerVideo.style.transform = 'scaleX(1)';
+        
+        // Start scanning when video is playing
+        scannerVideo.onplaying = () => {
+          showDebug('Video stream started with fallback settings');
+          
+          // Set canvas dimensions to match video
+          canvas.width = scannerVideo.videoWidth;
+          canvas.height = scannerVideo.videoHeight;
+          showDebug(`Canvas size: ${canvas.width}x${canvas.height}`);
+          
+          // Initialize Quagga for barcode scanning
+          Quagga.init({
+            inputStream: {
+              name: "Live",
+              type: "LiveStream",
+              target: scannerVideo,
+              constraints: {
+                width: canvas.width,
+                height: canvas.height,
+                facingMode: "environment"
+              },
+            },
+            decoder: {
+              readers: [
+                "code_128_reader",
+                "ean_reader",
+                "ean_8_reader",
+                "code_39_reader",
+                "code_39_vin_reader",
+                "codabar_reader",
+                "upc_reader",
+                "upc_e_reader",
+                "i2of5_reader"
+              ]
+            },
+            locate: true,
+            frequency: 30
+          }, function(err) {
+            if (err) {
+              statusDiv.textContent = "Error initializing scanner: " + err;
+              showDebug("Error initializing Quagga: " + err);
+              return;
+            }
+            
+            Quagga.start();
+            showDebug("Quagga started with all readers");
+          });
+          
+          Quagga.onDetected(function(result) {
+            const code = result.codeResult.code;
+            showDebug(`Quagga detected barcode: ${code}`);
+            handleBarcodeScan(code);
+          });
+        };
+        
+      } catch (error) {
+        console.error('Fallback scanner init failed:', error);
+        showDebug('Fallback scanner init failed: ' + error.message);
+        showError('Failed to initialize scanner: ' + error.message);
         stopScanner();
       }
     }
     
     // Stop barcode scanner
     function stopScanner() {
-      if (qrScanner) {
-        qrScanner.stop();
-        qrScanner.destroy();
-        qrScanner = null;
+      if (Quagga) {
+        Quagga.stop();
+        Quagga.offDetected();
+      }
+      
+      if (scannerInterval) {
+        clearInterval(scannerInterval);
+        scannerInterval = null;
       }
       
       if (fpsInterval) {
@@ -957,26 +1150,57 @@
         fpsInterval = null;
       }
       
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+      }
+      
       scannerContainer.style.display = 'none';
       scannerFeedback.style.display = 'none';
       scannerPerformance.style.display = 'none';
+      dbIndicator.style.display = 'none';
       isScanning = false;
+      scannerVideo.srcObject = null;
       showDebug('Scanner stopped');
     }
     
-    // Handle barcode scan
+    // Handle barcode scan with dual database check
     async function handleBarcodeScan(barcode) {
       try {
         showDebug(`Looking up product for barcode: ${barcode}`);
-        const product = await getProductByBarcode(barcode);
+        let product = null;
+        let source = '';
         
+        // Update database indicator
+        dbIndicator.textContent = isOnline ? 'Using: Firebase' : 'Using: IndexedDB';
+        dbIndicator.style.background = isOnline ? '#4285f4' : '#34a853';
+        
+        // Always check IndexedDB first
+        product = await getProductByBarcode(barcode);
         if (product) {
-          showProduct(product);
-        } else {
-          showNotFound();
+          source = 'IndexedDB';
+          showProduct(product, source);
+          stopScanner();
+          return;
         }
         
+        // If online, check Firebase
+        if (isOnline) {
+          product = await getProductFromFirebase(barcode);
+          if (product) {
+            source = 'Firebase';
+            // Add to IndexedDB for future offline access
+            await addProductToDB(product);
+            showProduct(product, source);
+            stopScanner();
+            return;
+          }
+        }
+        
+        // If not found in either database
+        showNotFound();
         stopScanner();
+        
       } catch (error) {
         console.error('Barcode lookup failed:', error);
         showDebug('Barcode lookup failed: ' + error.message);
@@ -987,12 +1211,13 @@
     
     // Check online status
     function updateOnlineStatus() {
-      if (navigator.onLine) {
+      isOnline = navigator.onLine;
+      if (isOnline) {
         offlineBanner.style.display = 'none';
-        showDebug('Online');
+        showDebug('Online - Using Firebase when available');
       } else {
         offlineBanner.style.display = 'block';
-        showDebug('Offline');
+        showDebug('Offline - Using IndexedDB');
       }
     }
     
@@ -1011,7 +1236,7 @@
         
         // Check if we have any products in IndexedDB
         const products = await getAllProductsFromDB();
-        if (products.length === 0 && navigator.onLine) {
+        if (products.length === 0 && isOnline) {
           showDebug('No products in IndexedDB, starting sync');
           await syncProducts();
         } else if (products.length > 0) {
@@ -1042,7 +1267,7 @@
                 `;
                 
                 item.addEventListener('click', () => {
-                  showProduct(product);
+                  showProduct(product, 'IndexedDB');
                   searchInput.value = '';
                   searchResults.style.display = 'none';
                 });
