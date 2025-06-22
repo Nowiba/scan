@@ -1,5 +1,5 @@
 // Cache name
-const CACHE_NAME = 'productscan-cache-v1';
+const CACHE_NAME = 'productscan-cache-v2';
 
 // Files to cache
 const urlsToCache = [
@@ -88,4 +88,19 @@ self.addEventListener('sync', event => {
       console.log('Background sync for products')
     );
   }
+});
+
+// Push notifications
+self.addEventListener('push', event => {
+  const data = event.data.json();
+  const title = data.title || 'ProductScan Notification';
+  const options = {
+    body: data.body || 'You have a new notification',
+    icon: 'icon-192.png',
+    badge: 'icon-192.png'
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+  );
 });
