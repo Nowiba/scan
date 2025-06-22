@@ -8,6 +8,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
   <style>
     :root {
       --primary-color: #4285f4;
@@ -33,6 +34,7 @@
       padding: 0;
       margin: 0;
       min-height: 100vh;
+      overflow-x: hidden;
     }
     
     .container {
@@ -181,7 +183,7 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      transform: scaleX(1); /* Corrected for back camera */
+      transform: scaleX(1);
     }
     
     .scanner-overlay {
@@ -203,6 +205,23 @@
       height: 200px;
       border: 3px solid var(--secondary-color);
       border-radius: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .scan-line {
+      position: absolute;
+      height: 3px;
+      width: 100%;
+      background-color: var(--secondary-color);
+      top: 0;
+      animation: scan 2s ease-in-out infinite;
+    }
+    
+    @keyframes scan {
+      0% { top: 0; }
+      50% { top: calc(100% - 3px); }
+      100% { top: 0; }
     }
     
     .scanner-guide {
@@ -367,16 +386,87 @@
       z-index: 100;
     }
     
-    .debug-panel {
+    .debug-panel-container {
       position: fixed;
-      top: 10px;
+      top: 60px;
       right: 10px;
+      z-index: 2000;
+    }
+    
+    .debug-toggle {
+      background: var(--primary-color);
+      color: white;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      box-shadow: var(--shadow);
+    }
+    
+    .debug-panel {
+      background: rgba(0,0,0,0.85);
+      color: white;
+      padding: 15px;
+      border-radius: 10px;
+      margin-top: 10px;
+      width: 300px;
+      max-height: 400px;
+      overflow-y: auto;
+      display: none;
+      font-size: 0.8rem;
+      box-shadow: var(--shadow);
+    }
+    
+    .debug-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .debug-title {
+      font-weight: bold;
+    }
+    
+    .debug-clear {
+      background: #444;
+      border: none;
+      color: white;
+      padding: 3px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    
+    .debug-info {
+      line-height: 1.5;
+    }
+    
+    .debug-entry {
+      margin-bottom: 8px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #333;
+    }
+    
+    .debug-timestamp {
+      color: #aaa;
+      font-size: 0.7rem;
+      margin-right: 5px;
+    }
+    
+    .debug-message {
+      word-wrap: break-word;
+    }
+    
+    .scanner-feedback {
+      position: absolute;
+      top: 10px;
+      left: 10px;
       background: rgba(0,0,0,0.7);
       color: white;
-      padding: 10px;
+      padding: 5px 10px;
       border-radius: 5px;
-      font-size: 0.8rem;
-      z-index: 2000;
+      font-size: 0.9rem;
       display: none;
     }
     
@@ -392,6 +482,10 @@
       .scanner-frame {
         width: 60%;
         height: 250px;
+      }
+      
+      .debug-panel {
+        width: 400px;
       }
     }
   </style>
@@ -412,14 +506,19 @@
       <button id="sync-btn" class="btn">🔄 Sync Now</button>
       
       <div class="scanner-container" id="scanner-container">
+        <div class="scanner-feedback" id="scanner-feedback">Scanning...</div>
         <video id="scanner-video" playsinline autoplay></video>
         <div class="scanner-overlay">
-          <div class="scanner-frame"></div>
+          <div class="scanner-frame">
+            <div class="scan-line"></div>
+          </div>
           <div class="scanner-guide">Point camera at barcode</div>
         </div>
         <div class="scanner-controls">
           <button class="scanner-btn" id="close-scanner">✕</button>
           <button class="scanner-btn" id="toggle-flash">🔦</button>
+          <button class="scanner-btn" id="focus-in">🔍+</button>
+          <button class="scanner-btn" id="focus-out">🔍-</button>
         </div>
       </div>
       
@@ -439,9 +538,15 @@
     </div>
   </div>
   
-  <div class="debug-panel" id="debug-panel">
-    <div>Debug Information:</div>
-    <div id="debug-info"></div>
+  <div class="debug-panel-container">
+    <button class="debug-toggle" id="debug-toggle">Debug Mode</button>
+    <div class="debug-panel" id="debug-panel">
+      <div class="debug-header">
+        <div class="debug-title">Debug Information</div>
+        <button class="debug-clear" id="debug-clear">Clear</button>
+      </div>
+      <div class="debug-info" id="debug-info"></div>
+    </div>
   </div>
   
   <div class="offline-banner" id="offline-banner">
@@ -492,8 +597,11 @@
     const syncBtn = document.getElementById('sync-btn');
     const scannerContainer = document.getElementById('scanner-container');
     const scannerVideo = document.getElementById('scanner-video');
+    const scannerFeedback = document.getElementById('scanner-feedback');
     const closeScanner = document.getElementById('close-scanner');
     const toggleFlash = document.getElementById('toggle-flash');
+    const focusInBtn = document.getElementById('focus-in');
+    const focusOutBtn = document.getElementById('focus-out');
     const productDisplay = document.getElementById('product-display');
     const productName = document.getElementById('product-name');
     const productPrice = document.getElementById('product-price');
@@ -507,8 +615,10 @@
     const loginError = document.getElementById('login-error');
     const cancelLogin = document.getElementById('cancel-login');
     const submitLogin = document.getElementById('submit-login');
+    const debugToggle = document.getElementById('debug-toggle');
     const debugPanel = document.getElementById('debug-panel');
     const debugInfo = document.getElementById('debug-info');
+    const debugClear = document.getElementById('debug-clear');
     
     // Variables
     let isScanning = false;
@@ -517,12 +627,17 @@
     let db = null;
     let stream = null;
     let flashOn = false;
-    let debugMode = true; // Set to false in production
-    
+    let debugMode = true;
+    let debugPanelVisible = false;
+    let currentFocusDistance = 0.5;
+    let scanAttempts = 0;
+    let lastScannedBarcode = null;
+    let quaggaActive = false;
+
     // Initialize IndexedDB
     function initDB() {
       return new Promise((resolve, reject) => {
-        const request = indexedDB.open('ProductDB', 2); // Increased version to force update
+        const request = indexedDB.open('ProductDB', 3); // Increased version to force update
         
         request.onerror = (event) => {
           console.error('IndexedDB error:', event.target.error);
@@ -728,9 +843,50 @@
     function showDebug(message) {
       if (!debugMode) return;
       
-      debugPanel.style.display = 'block';
-      debugInfo.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${message}</div>`;
+      const now = new Date();
+      const timestamp = now.toLocaleTimeString() + '.' + now.getMilliseconds().toString().padStart(3, '0');
+      
+      const debugEntry = document.createElement('div');
+      debugEntry.className = 'debug-entry';
+      debugEntry.innerHTML = `
+        <span class="debug-timestamp">[${timestamp}]</span>
+        <span class="debug-message">${message}</span>
+      `;
+      
+      debugInfo.appendChild(debugEntry);
       debugInfo.scrollTop = debugInfo.scrollHeight;
+    }
+    
+    // Toggle debug panel
+    function toggleDebugPanel() {
+      debugPanelVisible = !debugPanelVisible;
+      debugPanel.style.display = debugPanelVisible ? 'block' : 'none';
+    }
+    
+    // Adjust camera focus
+    function adjustFocus(direction) {
+      if (!stream) return;
+      
+      const track = stream.getVideoTracks()[0];
+      if (!track || !track.getCapabilities().focusDistance) {
+        showDebug('Manual focus not supported on this device');
+        return;
+      }
+      
+      // Adjust focus distance (0 = infinity, 1 = closest)
+      currentFocusDistance = Math.max(0, Math.min(1, 
+        currentFocusDistance + (direction === 'in' ? -0.1 : 0.1)
+      ));
+      
+      try {
+        track.applyConstraints({
+          advanced: [{ focusDistance: currentFocusDistance }]
+        });
+        showDebug(`Focus adjusted to: ${currentFocusDistance.toFixed(2)}`);
+      } catch (error) {
+        console.error('Focus adjustment failed:', error);
+        showDebug('Focus adjustment failed: ' + error.message);
+      }
     }
     
     // Initialize barcode scanner
@@ -746,14 +902,17 @@
             facingMode: "environment", // Prefer back camera
             width: { ideal: 1920 },
             height: { ideal: 1080 },
-            frameRate: { ideal: 30 },
-            focusMode: "continuous" // Enable continuous autofocus
+            frameRate: { ideal: 60 },
+            focusMode: "continuous", // Enable continuous autofocus
+            focusDistance: currentFocusDistance
           } 
         });
         
         scannerVideo.srcObject = stream;
         scannerContainer.style.display = 'flex';
+        scannerFeedback.style.display = 'block';
         isScanning = true;
+        scanAttempts = 0;
         showDebug('Scanner initialized with back camera');
         
         // Apply the correct orientation for back camera
@@ -772,6 +931,14 @@
           scannerInterval = setInterval(() => {
             scanBarcode(canvas);
           }, 33); // ~30fps
+          
+          // Try QuaggaJS as a fallback if no results in 5 seconds
+          setTimeout(() => {
+            if (!lastScannedBarcode) {
+              showDebug('Trying QuaggaJS as fallback scanner');
+              initQuaggaScanner();
+            }
+          }, 5000);
         };
         
       } catch (error) {
@@ -785,11 +952,51 @@
       }
     }
     
+    // Initialize QuaggaJS scanner
+    function initQuaggaScanner() {
+      if (quaggaActive) return;
+      
+      try {
+        Quagga.init({
+          inputStream: {
+            name: "Live",
+            type: "LiveStream",
+            target: scannerVideo,
+            constraints: {
+              facingMode: "environment"
+            },
+          },
+          decoder: {
+            readers: ["ean_reader"]
+          },
+          locate: true
+        }, function(err) {
+          if (err) {
+            showDebug('Quagga init error: ' + err);
+            return;
+          }
+          showDebug('Quagga initialized');
+          quaggaActive = true;
+          Quagga.start();
+        });
+        
+        Quagga.onDetected(function(result) {
+          const code = result.codeResult.code;
+          showDebug(`Quagga detected barcode: ${code}`);
+          handleBarcodeScan(code);
+        });
+      } catch (error) {
+        showDebug('Quagga failed: ' + error.message);
+      }
+    }
+    
     // Scan for barcodes
     function scanBarcode(canvas) {
       if (!scannerVideo.videoWidth || !scannerVideo.videoHeight) {
         return;
       }
+      
+      scanAttempts++;
       
       try {
         // Draw video frame to canvas
@@ -815,18 +1022,19 @@
           imageData.width, 
           imageData.height, 
           {
-            inversionAttempts: "dontInvert",
+            inversionAttempts: "attemptBoth",
           }
         );
         
         // If code found
         if (code) {
-          showDebug(`Scanned barcode: ${code.data}`);
+          showDebug(`Scanned barcode (attempt #${scanAttempts}): ${code.data}`);
           
           // Validate barcode - EAN-13 should be 13 digits
           const barcode = code.data;
           if (/^\d{13}$/.test(barcode)) {
             showDebug('Valid EAN-13 barcode detected');
+            lastScannedBarcode = barcode;
             handleBarcodeScan(barcode);
           } else {
             showDebug('Invalid barcode format. EAN-13 should be 13 digits.');
@@ -836,6 +1044,9 @@
         console.error('Scan error:', error);
         showDebug('Scan error: ' + error.message);
       }
+      
+      // Show scanning status
+      scannerFeedback.textContent = `Scanning... (Attempt ${scanAttempts})`;
     }
     
     // Stop barcode scanner
@@ -846,6 +1057,12 @@
         showDebug('Scanner interval cleared');
       }
       
+      if (quaggaActive) {
+        Quagga.stop();
+        quaggaActive = false;
+        showDebug('Quagga stopped');
+      }
+      
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
         stream = null;
@@ -853,6 +1070,7 @@
       }
       
       scannerContainer.style.display = 'none';
+      scannerFeedback.style.display = 'none';
       isScanning = false;
       flashOn = false;
       scannerVideo.srcObject = null;
@@ -996,6 +1214,14 @@
           toggleFlashlight();
         });
         
+        focusInBtn.addEventListener('click', () => {
+          adjustFocus('in');
+        });
+        
+        focusOutBtn.addEventListener('click', () => {
+          adjustFocus('out');
+        });
+        
         syncBtn.addEventListener('click', syncProducts);
         
         menuBtn.addEventListener('click', () => {
@@ -1030,6 +1256,12 @@
             loginError.textContent = error.message;
             submitLogin.textContent = 'Login';
           }
+        });
+        
+        // Debug panel controls
+        debugToggle.addEventListener('click', toggleDebugPanel);
+        debugClear.addEventListener('click', () => {
+          debugInfo.innerHTML = '';
         });
         
         // Handle online/offline status
