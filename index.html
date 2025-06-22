@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Product Scanner Pro</title>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+  <title>Advanced Product Scanner</title>
   <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
   <style>
     :root {
       --primary-color: #4285f4;
@@ -16,7 +16,6 @@
       --light-gray: #f5f5f5;
       --dark-gray: #757575;
       --shadow: 0 2px 5px rgba(0,0,0,0.1);
-      --background-gradient: linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c);
     }
     
     * {
@@ -27,7 +26,7 @@
     }
     
     body {
-      background: var(--background-gradient);
+      background: linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c);
       color: white;
       line-height: 1.6;
       padding: 0;
@@ -58,73 +57,10 @@
     .logo {
       font-weight: bold;
       font-size: 1.5rem;
+      color: white;
       background: linear-gradient(to right, #4facfe, #00f2fe);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-    }
-    
-    .search-container {
-      flex-grow: 1;
-      margin: 0 15px;
-      position: relative;
-    }
-    
-    #search-input {
-      width: 100%;
-      padding: 10px 15px;
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      border-radius: 20px;
-      font-size: 1rem;
-      outline: none;
-      transition: border 0.3s;
-      background: rgba(0, 0, 0, 0.5);
-      color: white;
-    }
-    
-    #search-input:focus {
-      border-color: var(--primary-color);
-    }
-    
-    #search-results {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      background: rgba(0, 0, 0, 0.9);
-      border-radius: 0 0 10px 10px;
-      box-shadow: var(--shadow);
-      max-height: 300px;
-      overflow-y: auto;
-      z-index: 10;
-      display: none;
-    }
-    
-    .search-item {
-      padding: 10px 15px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-    
-    .search-item:hover {
-      background: rgba(255, 255, 255, 0.1);
-    }
-    
-    .search-item-name {
-      font-weight: bold;
-    }
-    
-    .search-item-price {
-      color: var(--secondary-color);
-      font-size: 0.9rem;
-    }
-    
-    .menu-btn {
-      background: none;
-      border: none;
-      font-size: 1.5rem;
-      cursor: pointer;
-      color: white;
     }
     
     .main-content {
@@ -167,13 +103,17 @@
       background: linear-gradient(to right, #ff416c, #ff4b2b);
     }
     
+    .btn-success {
+      background: linear-gradient(to right, #00b09b, #96c93d);
+    }
+    
     .scanner-container {
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(0, 0, 0, 0.95);
+      background: rgba(0, 0, 0, 0.9);
       z-index: 1000;
       display: none;
       flex-direction: column;
@@ -275,7 +215,14 @@
       text-align: center;
       display: none;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-      animation: fadeIn 0.5s ease;
+    }
+    
+    .product-image {
+      max-width: 100%;
+      max-height: 200px;
+      margin: 15px auto;
+      border-radius: 10px;
+      display: none;
     }
     
     .product-name {
@@ -305,7 +252,45 @@
       border-radius: 10px;
       margin: 20px 0;
       display: none;
-      animation: fadeIn 0.5s ease;
+    }
+    
+    .camera-settings {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 10px;
+      border-radius: 10px;
+      z-index: 10;
+      display: none;
+      width: 250px;
+    }
+    
+    .settings-title {
+      font-weight: bold;
+      margin-bottom: 10px;
+      text-align: center;
+      color: #00f2fe;
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 0.9rem;
+    }
+    
+    .form-group select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #4facfe;
+      border-radius: 5px;
+      background: rgba(30, 30, 40, 0.7);
+      color: white;
     }
     
     .performance-info {
@@ -397,6 +382,107 @@
       margin: 8px 0;
     }
     
+    .search-container {
+      display: flex;
+      gap: 10px;
+      margin: 20px 0;
+    }
+    
+    #search-input {
+      flex: 1;
+      padding: 12px 20px;
+      border-radius: 50px;
+      border: none;
+      background: rgba(255, 255, 255, 0.15);
+      color: white;
+      font-size: 1rem;
+      outline: none;
+    }
+    
+    #search-input::placeholder {
+      color: rgba(255, 255, 255, 0.7);
+    }
+    
+    #search-input:focus {
+      background: rgba(255, 255, 255, 0.25);
+    }
+    
+    .offline-indicator {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: rgba(255, 193, 7, 0.9);
+      color: #333;
+      padding: 10px 15px;
+      border-radius: 50px;
+      font-weight: bold;
+      z-index: 100;
+      display: none;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+    }
+    
+    .admin-panel {
+      background: rgba(30, 30, 40, 0.9);
+      border-radius: 15px;
+      padding: 20px;
+      margin: 20px 0;
+      display: none;
+    }
+    
+    .admin-panel h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #4facfe;
+    }
+    
+    .form-row {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+    
+    .form-field {
+      flex: 1;
+    }
+    
+    .form-field label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 0.9rem;
+    }
+    
+    .form-field input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #4facfe;
+      background: rgba(30, 30, 40, 0.7);
+      color: white;
+      font-size: 1rem;
+    }
+    
+    .admin-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    
+    .status-message {
+      margin-top: 15px;
+      padding: 10px;
+      border-radius: 5px;
+      text-align: center;
+      display: none;
+    }
+    
+    .status-success {
+      background: rgba(76, 175, 80, 0.3);
+    }
+    
+    .status-error {
+      background: rgba(244, 67, 54, 0.3);
+    }
+    
     @media (min-width: 768px) {
       .container {
         max-width: 750px;
@@ -412,29 +498,48 @@
         height: 250px;
       }
     }
-    
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
       <div class="logo">ProductScan Pro</div>
-      <div class="search-container">
-        <input type="text" id="search-input" placeholder="Search products...">
-        <div id="search-results"></div>
+      <div>
+        <button id="admin-btn" class="btn btn-success">Admin</button>
       </div>
-      <button class="menu-btn" id="menu-btn">☰</button>
     </header>
     
     <div class="main-content">
+      <div class="search-container">
+        <input type="text" id="search-input" placeholder="Enter barcode or product name">
+        <button id="search-btn" class="btn btn-secondary">Search</button>
+      </div>
+      
       <button id="scan-btn" class="btn btn-secondary">📷 Scan Barcode</button>
       
       <div class="scanner-container" id="scanner-container">
         <div class="performance-info" id="performance-info">Resolution: 720p | FPS: 20</div>
+        <div class="camera-settings" id="camera-settings">
+          <div class="settings-title">Camera Settings</div>
+          <div class="form-group">
+            <label for="resolution-select">Resolution</label>
+            <select id="resolution-select">
+              <option value="480p">480p (SD)</option>
+              <option value="720p" selected>720p (HD)</option>
+              <option value="1080p">1080p (Full HD)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="fps-select">Frames Per Second</label>
+            <select id="fps-select">
+              <option value="10">10 FPS</option>
+              <option value="20" selected>20 FPS</option>
+              <option value="30">30 FPS</option>
+              <option value="60">60 FPS</option>
+            </select>
+          </div>
+          <button id="apply-settings" class="btn">Apply Settings</button>
+        </div>
         <video id="scanner-video" playsinline autoplay></video>
         <div class="scanner-overlay">
           <div class="scanner-frame">
@@ -444,11 +549,43 @@
         </div>
         <div class="scanner-controls">
           <button class="scanner-btn" id="close-scanner">✕</button>
+          <button class="scanner-btn" id="settings-btn">⚙️</button>
           <button class="scanner-btn" id="toggle-debug">🐞</button>
         </div>
       </div>
       
+      <div class="admin-panel" id="admin-panel">
+        <h2>Product Management</h2>
+        <div class="form-row">
+          <div class="form-field">
+            <label for="admin-barcode">Barcode</label>
+            <input type="text" id="admin-barcode" placeholder="Enter barcode">
+          </div>
+          <div class="form-field">
+            <label for="admin-name">Product Name</label>
+            <input type="text" id="admin-name" placeholder="Enter product name">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label for="admin-price">Price ($)</label>
+            <input type="number" id="admin-price" placeholder="Enter price" step="0.01">
+          </div>
+          <div class="form-field">
+            <label for="admin-image">Image URL</label>
+            <input type="text" id="admin-image" placeholder="Enter image URL">
+          </div>
+        </div>
+        <div class="admin-buttons">
+          <button id="add-product" class="btn btn-success">Add Product</button>
+          <button id="update-product" class="btn btn-secondary">Update</button>
+          <button id="delete-product" class="btn btn-danger">Delete</button>
+        </div>
+        <div class="status-message" id="admin-status"></div>
+      </div>
+      
       <div class="product-display" id="product-display">
+        <img class="product-image" id="product-image" src="" alt="Product Image">
         <div class="product-name" id="product-name"></div>
         <div class="product-price" id="product-price"></div>
         <div class="product-barcode" id="product-barcode"></div>
@@ -472,46 +609,67 @@
           <li>Position barcode in the center of the frame</li>
           <li>Ensure good lighting conditions</li>
           <li>Hold device steady about 6-12 inches from barcode</li>
-          <li>Try different angles if scanning fails</li>
-          <li>Check database if product doesn't appear</li>
+          <li>Adjust camera settings if scanning is slow</li>
+          <li>Try different FPS/resolution combinations for best performance</li>
         </ul>
       </div>
     </div>
+  </div>
+  
+  <div class="offline-indicator" id="offline-indicator">
+    ⚠️ Offline Mode - Using cached products
   </div>
 
   <script>
     // Firebase configuration
     const firebaseConfig = {
-      apiKey: "AIzaSyDdjJKO4eeIWtKKUKiuT9USPF3eyFnVuSQ",
+      apiKey: "AIzaSyBqCz2sIx2yQrLJb2m1x8XoK9Y4j7tZ0Xw",
       authDomain: "scan-prod1.firebaseapp.com",
       databaseURL: "https://scan-prod1-default-rtdb.europe-west1.firebasedatabase.app",
       projectId: "scan-prod1",
-      storageBucket: "scan-prod1.firebasestorage.app",
-      messagingSenderId: "197976973628",
-      appId: "1:197976973628:web:73bdf954ae78017b813e39"
+      storageBucket: "scan-prod1.appspot.com",
+      messagingSenderId: "1234567890",
+      appId: "1:1234567890:web:abcdef1234567890"
     };
     
     // Initialize Firebase
-    const app = firebase.initializeApp(firebaseConfig);
+    firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
     
     // DOM elements
-    const searchInput = document.getElementById('search-input');
-    const searchResults = document.getElementById('search-results');
     const scanBtn = document.getElementById('scan-btn');
     const scannerContainer = document.getElementById('scanner-container');
     const scannerVideo = document.getElementById('scanner-video');
     const closeScanner = document.getElementById('close-scanner');
+    const settingsBtn = document.getElementById('settings-btn');
+    const cameraSettings = document.getElementById('camera-settings');
+    const resolutionSelect = document.getElementById('resolution-select');
+    const fpsSelect = document.getElementById('fps-select');
+    const applySettings = document.getElementById('apply-settings');
     const performanceInfo = document.getElementById('performance-info');
     const productDisplay = document.getElementById('product-display');
     const productName = document.getElementById('product-name');
     const productPrice = document.getElementById('product-price');
     const productBarcode = document.getElementById('product-barcode');
+    const productImage = document.getElementById('product-image');
     const notFound = document.getElementById('not-found');
     const toggleDebug = document.getElementById('toggle-debug');
     const debugPanel = document.getElementById('debug-panel');
     const debugInfo = document.getElementById('debug-info');
     const debugClear = document.getElementById('debug-clear');
+    const adminBtn = document.getElementById('admin-btn');
+    const adminPanel = document.getElementById('admin-panel');
+    const adminBarcode = document.getElementById('admin-barcode');
+    const adminName = document.getElementById('admin-name');
+    const adminPrice = document.getElementById('admin-price');
+    const adminImage = document.getElementById('admin-image');
+    const addProduct = document.getElementById('add-product');
+    const updateProduct = document.getElementById('update-product');
+    const deleteProduct = document.getElementById('delete-product');
+    const adminStatus = document.getElementById('admin-status');
+    const searchInput = document.getElementById('search-input');
+    const searchBtn = document.getElementById('search-btn');
+    const offlineIndicator = document.getElementById('offline-indicator');
     
     // Variables
     let isScanning = false;
@@ -519,7 +677,54 @@
     let quaggaActive = false;
     let debugMode = false;
     let scanAttempts = 0;
-    let products = {};
+    let offlineMode = false;
+    let productsCache = {};
+    
+    // Camera settings with defaults
+    let cameraSettingsConfig = {
+      resolution: '720p',
+      fps: 20
+    };
+    
+    // Resolution mapping
+    const resolutions = {
+      '480p': { width: 640, height: 480 },
+      '720p': { width: 1280, height: 720 },
+      '1080p': { width: 1920, height: 1080 }
+    };
+    
+    // Cache products from Firebase
+    function cacheProducts() {
+      database.ref('products').once('value')
+        .then(snapshot => {
+          productsCache = snapshot.val() || {};
+          showDebug(`Cached ${Object.keys(productsCache).length} products`);
+          localStorage.setItem('productsCache', JSON.stringify(productsCache));
+        })
+        .catch(error => {
+          showDebug(`Cache error: ${error.message}`);
+        });
+    }
+    
+    // Load cached products from localStorage
+    function loadCachedProducts() {
+      const cached = localStorage.getItem('productsCache');
+      if (cached) {
+        productsCache = JSON.parse(cached);
+        showDebug(`Loaded ${Object.keys(productsCache).length} cached products`);
+      }
+    }
+    
+    // Check network status
+    function checkNetworkStatus() {
+      offlineMode = !navigator.onLine;
+      offlineIndicator.style.display = offlineMode ? 'block' : 'none';
+      showDebug(offlineMode ? 'Offline mode activated' : 'Online mode');
+      
+      if (!offlineMode) {
+        cacheProducts();
+      }
+    }
     
     // Show debug information
     function showDebug(message) {
@@ -539,38 +744,30 @@
       debugInfo.scrollTop = debugInfo.scrollHeight;
     }
     
-    // Load products from Firebase
-    async function loadProducts() {
-      try {
-        const snapshot = await database.ref('products').once('value');
-        products = snapshot.val();
-        showDebug(`Loaded ${Object.keys(products).length} products from Firebase`);
-      } catch (error) {
-        console.error('Error loading products:', error);
-        showDebug('Error loading products: ' + error.message);
-      }
-    }
-    
-    // Initialize barcode scanner
+    // Initialize barcode scanner with current settings
     async function initScanner() {
       try {
-        // Get camera access
+        // Get selected resolution
+        const res = resolutions[cameraSettingsConfig.resolution];
+        
+        // Get camera access with current settings
         stream = await navigator.mediaDevices.getUserMedia({ 
           video: { 
             facingMode: "environment",
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            frameRate: { ideal: 20, max: 20 }
+            width: { ideal: res.width },
+            height: { ideal: res.height },
+            frameRate: { ideal: cameraSettingsConfig.fps, max: cameraSettingsConfig.fps }
           } 
         });
         
         scannerVideo.srcObject = stream;
         scannerContainer.style.display = 'flex';
         performanceInfo.style.display = 'block';
+        performanceInfo.textContent = `Resolution: ${cameraSettingsConfig.resolution} | FPS: ${cameraSettingsConfig.fps}`;
         isScanning = true;
         scanAttempts = 0;
         
-        showDebug(`Scanner started`);
+        showDebug(`Scanner started: ${cameraSettingsConfig.resolution} @ ${cameraSettingsConfig.fps}FPS`);
         
         // Initialize Quagga when video is playing
         scannerVideo.onplaying = () => {
@@ -583,8 +780,8 @@
               type: "LiveStream",
               target: scannerVideo,
               constraints: {
-                width: 640,
-                height: 480,
+                width: res.width,
+                height: res.height,
                 facingMode: "environment"
               },
             },
@@ -599,7 +796,7 @@
               ]
             },
             locate: true,
-            frequency: 10,
+            frequency: Math.min(10, cameraSettingsConfig.fps/2), // Adaptive frequency
             halfSample: true
           }, function(err) {
             if (err) {
@@ -621,7 +818,7 @@
           
           Quagga.onProcessed(function(result) {
             scanAttempts++;
-            performanceInfo.textContent = `Resolution: 720p | FPS: 20 | Attempts: ${scanAttempts}`;
+            performanceInfo.textContent = `Resolution: ${cameraSettingsConfig.resolution} | FPS: ${cameraSettingsConfig.fps} | Attempts: ${scanAttempts}`;
           });
         };
         
@@ -648,6 +845,7 @@
       
       scannerContainer.style.display = 'none';
       performanceInfo.style.display = 'none';
+      cameraSettings.style.display = 'none';
       isScanning = false;
       scannerVideo.srcObject = null;
     }
@@ -657,38 +855,75 @@
       try {
         showDebug(`Processing barcode: ${barcode}`);
         
-        // Normalize barcode by trimming and converting to string
-        const normalizedBarcode = String(barcode).trim();
-        showDebug(`Looking for product: ${normalizedBarcode}`);
-        
-        // Find product in Firebase data
-        const product = products[normalizedBarcode];
-        
-        if (product) {
-          productName.textContent = product.name;
-          productPrice.textContent = `$${product.price.toFixed(2)}`;
-          productBarcode.textContent = `Barcode: ${normalizedBarcode}`;
-          productDisplay.style.display = 'block';
-          notFound.style.display = 'none';
-          showDebug(`Product found: ${product.name}`);
-          
-          // Visual feedback
-          productDisplay.style.animation = 'none';
-          setTimeout(() => {
-            productDisplay.style.animation = 'fadeIn 0.5s';
-          }, 10);
-        } else {
-          showNotFound();
-          showDebug(`Product not found for barcode: ${normalizedBarcode}`);
+        // Check if we have cached data
+        if (productsCache[barcode]) {
+          showDebug(`Using cached product: ${barcode}`);
+          displayProduct(productsCache[barcode], barcode);
+          return;
         }
         
-        // Stop scanner after successful scan
-        setTimeout(stopScanner, 2000);
+        // If online, check Firebase
+        if (!offlineMode) {
+          showDebug(`Querying Firebase for: ${barcode}`);
+          
+          // Reference to the product in the database
+          const productRef = database.ref('products/' + barcode);
+          
+          productRef.once('value')
+            .then((snapshot) => {
+              const product = snapshot.val();
+              if (product) {
+                // Cache the product
+                productsCache[barcode] = product;
+                localStorage.setItem('productsCache', JSON.stringify(productsCache));
+                
+                displayProduct(product, barcode);
+              } else {
+                showNotFound();
+              }
+            })
+            .catch((error) => {
+              console.error('Error getting product:', error);
+              showNotFound();
+              showDebug('Error: ' + error.message);
+            });
+        } else {
+          showNotFound();
+        }
         
       } catch (error) {
         console.error('Barcode processing failed:', error);
         showDebug('Barcode processing failed: ' + error.message);
+        showNotFound();
       }
+    }
+    
+    // Display product information
+    function displayProduct(product, barcode) {
+      productName.textContent = product.name;
+      productPrice.textContent = `$${product.price.toFixed(2)}`;
+      productBarcode.textContent = `Barcode: ${barcode}`;
+      
+      // Show image if available
+      if (product.imageUrl) {
+        productImage.src = product.imageUrl;
+        productImage.style.display = 'block';
+      } else {
+        productImage.style.display = 'none';
+      }
+      
+      productDisplay.style.display = 'block';
+      notFound.style.display = 'none';
+      showDebug(`Product found: ${product.name}`);
+      
+      // Visual feedback
+      productDisplay.style.animation = 'none';
+      setTimeout(() => {
+        productDisplay.style.animation = 'pulse 0.5s';
+      }, 10);
+      
+      // Stop scanner after successful scan
+      setTimeout(stopScanner, 2000);
     }
     
     // Show not found message
@@ -700,96 +935,231 @@
       // Visual feedback
       notFound.style.animation = 'none';
       setTimeout(() => {
-        notFound.style.animation = 'fadeIn 0.5s';
+        notFound.style.animation = 'shake 0.5s';
       }, 10);
     }
     
-    // Search products by name
-    function searchProducts(query) {
-      if (!query) {
-        searchResults.style.display = 'none';
+    // Apply camera settings
+    function applyCameraSettings() {
+      cameraSettingsConfig = {
+        resolution: resolutionSelect.value,
+        fps: parseInt(fpsSelect.value)
+      };
+      
+      showDebug(`Settings applied: ${cameraSettingsConfig.resolution} @ ${cameraSettingsConfig.fps}FPS`);
+      
+      // Restart scanner with new settings
+      if (isScanning) {
+        stopScanner();
+        setTimeout(initScanner, 500);
+      }
+    }
+    
+    // Search for a product
+    function searchProduct() {
+      const query = searchInput.value.trim();
+      if (!query) return;
+      
+      showDebug(`Searching for: ${query}`);
+      
+      // Check if query is a barcode
+      if (/^\d+$/.test(query)) {
+        handleBarcodeScan(query);
         return;
       }
       
-      const results = [];
-      const lowerQuery = query.toLowerCase();
-      
-      // Search through products
-      for (const barcode in products) {
-        const product = products[barcode];
-        if (product.name.toLowerCase().includes(lowerQuery)) {
-          results.push({
-            barcode: barcode,
-            name: product.name,
-            price: product.price
-          });
+      // Search by name
+      let found = false;
+      for (const barcode in productsCache) {
+        if (productsCache[barcode].name.toLowerCase().includes(query.toLowerCase())) {
+          displayProduct(productsCache[barcode], barcode);
+          found = true;
+          break;
         }
       }
       
-      // Display results
-      if (results.length > 0) {
-        searchResults.innerHTML = '';
-        results.forEach(product => {
-          const item = document.createElement('div');
-          item.className = 'search-item';
-          item.innerHTML = `
-            <div class="search-item-name">${product.name}</div>
-            <div class="search-item-price">$${product.price.toFixed(2)}</div>
-          `;
-          
-          item.addEventListener('click', () => {
-            productName.textContent = product.name;
-            productPrice.textContent = `$${product.price.toFixed(2)}`;
-            productBarcode.textContent = `Barcode: ${product.barcode}`;
-            productDisplay.style.display = 'block';
-            notFound.style.display = 'none';
-            searchInput.value = '';
-            searchResults.style.display = 'none';
-          });
-          
-          searchResults.appendChild(item);
-        });
-        
-        searchResults.style.display = 'block';
-      } else {
-        searchResults.style.display = 'none';
+      if (!found) {
+        showNotFound();
       }
+    }
+    
+    // Admin functions
+    function addNewProduct() {
+      const barcode = adminBarcode.value.trim();
+      const name = adminName.value.trim();
+      const price = parseFloat(adminPrice.value);
+      const imageUrl = adminImage.value.trim();
+      
+      if (!barcode || !name || isNaN(price)) {
+        showAdminStatus('Please fill all required fields', 'error');
+        return;
+      }
+      
+      const product = {
+        barcode,
+        name,
+        price,
+        imageUrl: imageUrl || ""
+      };
+      
+      // Update cache immediately
+      productsCache[barcode] = product;
+      localStorage.setItem('productsCache', JSON.stringify(productsCache));
+      
+      // Update Firebase if online
+      if (!offlineMode) {
+        database.ref('products/' + barcode).set(product)
+          .then(() => {
+            showAdminStatus('Product added successfully!', 'success');
+          })
+          .catch(error => {
+            showAdminStatus('Error: ' + error.message, 'error');
+          });
+      } else {
+        showAdminStatus('Product added to cache (offline)', 'success');
+      }
+    }
+    
+    function updateExistingProduct() {
+      const barcode = adminBarcode.value.trim();
+      const name = adminName.value.trim();
+      const price = parseFloat(adminPrice.value);
+      const imageUrl = adminImage.value.trim();
+      
+      if (!barcode || !name || isNaN(price)) {
+        showAdminStatus('Please fill all required fields', 'error');
+        return;
+      }
+      
+      if (!productsCache[barcode]) {
+        showAdminStatus('Product not found in database', 'error');
+        return;
+      }
+      
+      const product = {
+        barcode,
+        name,
+        price,
+        imageUrl: imageUrl || ""
+      };
+      
+      // Update cache immediately
+      productsCache[barcode] = product;
+      localStorage.setItem('productsCache', JSON.stringify(productsCache));
+      
+      // Update Firebase if online
+      if (!offlineMode) {
+        database.ref('products/' + barcode).update(product)
+          .then(() => {
+            showAdminStatus('Product updated successfully!', 'success');
+          })
+          .catch(error => {
+            showAdminStatus('Error: ' + error.message, 'error');
+          });
+      } else {
+        showAdminStatus('Product updated in cache (offline)', 'success');
+      }
+    }
+    
+    function deleteExistingProduct() {
+      const barcode = adminBarcode.value.trim();
+      
+      if (!barcode) {
+        showAdminStatus('Please enter a barcode', 'error');
+        return;
+      }
+      
+      if (!productsCache[barcode]) {
+        showAdminStatus('Product not found in database', 'error');
+        return;
+      }
+      
+      // Remove from cache
+      delete productsCache[barcode];
+      localStorage.setItem('productsCache', JSON.stringify(productsCache));
+      
+      // Delete from Firebase if online
+      if (!offlineMode) {
+        database.ref('products/' + barcode).remove()
+          .then(() => {
+            showAdminStatus('Product deleted successfully!', 'success');
+          })
+          .catch(error => {
+            showAdminStatus('Error: ' + error.message, 'error');
+          });
+      } else {
+        showAdminStatus('Product deleted from cache (offline)', 'success');
+      }
+    }
+    
+    function showAdminStatus(message, type) {
+      adminStatus.textContent = message;
+      adminStatus.className = 'status-message';
+      adminStatus.classList.add(`status-${type}`);
+      adminStatus.style.display = 'block';
+      
+      setTimeout(() => {
+        adminStatus.style.display = 'none';
+      }, 3000);
     }
     
     // Set up event listeners
     scanBtn.addEventListener('click', initScanner);
-    
     closeScanner.addEventListener('click', stopScanner);
-    
-    searchInput.addEventListener('input', () => {
-      searchProducts(searchInput.value.trim());
+    settingsBtn.addEventListener('click', () => {
+      cameraSettings.style.display = cameraSettings.style.display === 'block' ? 'none' : 'block';
     });
-    
-    document.addEventListener('click', (e) => {
-      if (e.target !== searchInput) {
-        searchResults.style.display = 'none';
-      }
-    });
-    
+    applySettings.addEventListener('click', applyCameraSettings);
     toggleDebug.addEventListener('click', () => {
       debugMode = !debugMode;
       debugPanel.style.display = debugMode ? 'block' : 'none';
       showDebug(`Debug mode ${debugMode ? 'enabled' : 'disabled'}`);
     });
-    
     debugClear.addEventListener('click', () => {
       debugInfo.innerHTML = '';
     });
+    adminBtn.addEventListener('click', () => {
+      adminPanel.style.display = adminPanel.style.display === 'block' ? 'none' : 'block';
+    });
+    addProduct.addEventListener('click', addNewProduct);
+    updateProduct.addEventListener('click', updateExistingProduct);
+    deleteProduct.addEventListener('click', deleteExistingProduct);
+    searchBtn.addEventListener('click', searchProduct);
+    searchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') searchProduct();
+    });
     
-    // Initialize the app
-    async function initApp() {
-      await loadProducts();
-      showDebug('System initialized. Ready to scan.');
-      showDebug(`Registered products: ${Object.keys(products).join(', ')}`);
-    }
+    // Network status listeners
+    window.addEventListener('online', checkNetworkStatus);
+    window.addEventListener('offline', checkNetworkStatus);
     
-    // Start the app
-    document.addEventListener('DOMContentLoaded', initApp);
+    // Add CSS animations
+    const style = document.createElement('style');
+    style.innerHTML = `
+      @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+        100% { transform: scale(1); }
+      }
+      
+      @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+        20%, 40%, 60%, 80% { transform: translateX(5px); }
+      }
+      
+      .product-display, .not-found {
+        animation-duration: 0.5s;
+        animation-fill-mode: both;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    // Initialize
+    loadCachedProducts();
+    checkNetworkStatus();
+    cacheProducts();
+    showDebug('System initialized. Ready to scan.');
   </script>
 </body>
 </html>
