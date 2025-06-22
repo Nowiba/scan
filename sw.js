@@ -1,5 +1,5 @@
 // Cache name
-const CACHE_NAME = 'productscan-cache-v2';
+const CACHE_NAME = 'productscan-cache-v3';
 
 // Files to cache
 const urlsToCache = [
@@ -84,8 +84,7 @@ self.addEventListener('fetch', event => {
 self.addEventListener('sync', event => {
   if (event.tag === 'sync-products') {
     event.waitUntil(
-      // Implement your sync logic here
-      console.log('Background sync for products')
+      syncProducts()
     );
   }
 });
@@ -104,3 +103,10 @@ self.addEventListener('push', event => {
     self.registration.showNotification(title, options)
   );
 });
+
+// Background sync implementation
+function syncProducts() {
+  // This would contain your actual sync logic
+  console.log('Background sync for products');
+  return Promise.resolve();
+}
