@@ -384,8 +384,15 @@
     
     .search-container {
       display: flex;
+      flex-direction: column;
       gap: 10px;
       margin: 20px 0;
+      position: relative;
+    }
+    
+    .search-input-container {
+      display: flex;
+      gap: 10px;
     }
     
     #search-input {
@@ -407,6 +414,42 @@
       background: rgba(255, 255, 255, 0.25);
     }
     
+    .search-results {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: rgba(30, 30, 40, 0.95);
+      border-radius: 10px;
+      max-height: 300px;
+      overflow-y: auto;
+      z-index: 10;
+      display: none;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+    }
+    
+    .search-result-item {
+      padding: 12px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    
+    .search-result-item:hover {
+      background: rgba(79, 172, 254, 0.3);
+    }
+    
+    .result-name {
+      font-weight: bold;
+      color: #4facfe;
+    }
+    
+    .result-barcode {
+      font-size: 0.9rem;
+      color: #aaa;
+      margin-top: 5px;
+    }
+    
     .offline-indicator {
       position: fixed;
       bottom: 20px;
@@ -421,66 +464,28 @@
       box-shadow: 0 3px 10px rgba(0,0,0,0.2);
     }
     
-    .admin-panel {
-      background: rgba(30, 30, 40, 0.9);
-      border-radius: 15px;
-      padding: 20px;
-      margin: 20px 0;
-      display: none;
-    }
-    
-    .admin-panel h2 {
-      text-align: center;
-      margin-bottom: 20px;
-      color: #4facfe;
-    }
-    
-    .form-row {
-      display: flex;
-      gap: 15px;
-      margin-bottom: 15px;
-    }
-    
-    .form-field {
-      flex: 1;
-    }
-    
-    .form-field label {
-      display: block;
-      margin-bottom: 5px;
-      font-size: 0.9rem;
-    }
-    
-    .form-field input {
-      width: 100%;
-      padding: 10px;
-      border-radius: 5px;
-      border: 1px solid #4facfe;
+    .similar-results {
+      margin-top: 20px;
       background: rgba(30, 30, 40, 0.7);
-      color: white;
-      font-size: 1rem;
-    }
-    
-    .admin-buttons {
-      display: flex;
-      gap: 10px;
-      margin-top: 15px;
-    }
-    
-    .status-message {
-      margin-top: 15px;
-      padding: 10px;
-      border-radius: 5px;
-      text-align: center;
+      border-radius: 10px;
+      padding: 15px;
       display: none;
     }
     
-    .status-success {
-      background: rgba(76, 175, 80, 0.3);
+    .similar-results h3 {
+      color: #00f2fe;
+      margin-bottom: 10px;
+      text-align: center;
     }
     
-    .status-error {
-      background: rgba(244, 67, 54, 0.3);
+    .similar-item {
+      padding: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      cursor: pointer;
+    }
+    
+    .similar-item:hover {
+      background: rgba(79, 172, 254, 0.2);
     }
     
     @media (min-width: 768px) {
@@ -511,8 +516,11 @@
     
     <div class="main-content">
       <div class="search-container">
-        <input type="text" id="search-input" placeholder="Enter barcode or product name">
-        <button id="search-btn" class="btn btn-secondary">Search</button>
+        <div class="search-input-container">
+          <input type="text" id="search-input" placeholder="Enter barcode or product name">
+          <button id="search-btn" class="btn btn-secondary">Search</button>
+        </div>
+        <div class="search-results" id="search-results"></div>
       </div>
       
       <button id="scan-btn" class="btn btn-secondary">📷 Scan Barcode</button>
@@ -554,36 +562,6 @@
         </div>
       </div>
       
-      <div class="admin-panel" id="admin-panel">
-        <h2>Product Management</h2>
-        <div class="form-row">
-          <div class="form-field">
-            <label for="admin-barcode">Barcode</label>
-            <input type="text" id="admin-barcode" placeholder="Enter barcode">
-          </div>
-          <div class="form-field">
-            <label for="admin-name">Product Name</label>
-            <input type="text" id="admin-name" placeholder="Enter product name">
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-field">
-            <label for="admin-price">Price ($)</label>
-            <input type="number" id="admin-price" placeholder="Enter price" step="0.01">
-          </div>
-          <div class="form-field">
-            <label for="admin-image">Image URL</label>
-            <input type="text" id="admin-image" placeholder="Enter image URL">
-          </div>
-        </div>
-        <div class="admin-buttons">
-          <button id="add-product" class="btn btn-success">Add Product</button>
-          <button id="update-product" class="btn btn-secondary">Update</button>
-          <button id="delete-product" class="btn btn-danger">Delete</button>
-        </div>
-        <div class="status-message" id="admin-status"></div>
-      </div>
-      
       <div class="product-display" id="product-display">
         <img class="product-image" id="product-image" src="" alt="Product Image">
         <div class="product-name" id="product-name"></div>
@@ -593,6 +571,11 @@
       
       <div class="not-found" id="not-found">
         Product not found in database
+      </div>
+      
+      <div class="similar-results" id="similar-results">
+        <h3>Similar Products</h3>
+        <div id="similar-items"></div>
       </div>
       
       <div class="debug-panel" id="debug-panel">
@@ -658,18 +641,12 @@
     const debugInfo = document.getElementById('debug-info');
     const debugClear = document.getElementById('debug-clear');
     const adminBtn = document.getElementById('admin-btn');
-    const adminPanel = document.getElementById('admin-panel');
-    const adminBarcode = document.getElementById('admin-barcode');
-    const adminName = document.getElementById('admin-name');
-    const adminPrice = document.getElementById('admin-price');
-    const adminImage = document.getElementById('admin-image');
-    const addProduct = document.getElementById('add-product');
-    const updateProduct = document.getElementById('update-product');
-    const deleteProduct = document.getElementById('delete-product');
-    const adminStatus = document.getElementById('admin-status');
     const searchInput = document.getElementById('search-input');
     const searchBtn = document.getElementById('search-btn');
+    const searchResults = document.getElementById('search-results');
     const offlineIndicator = document.getElementById('offline-indicator');
+    const similarResults = document.getElementById('similar-results');
+    const similarItems = document.getElementById('similar-items');
     
     // Variables
     let isScanning = false;
@@ -679,6 +656,7 @@
     let scanAttempts = 0;
     let offlineMode = false;
     let productsCache = {};
+    let searchTimeout = null;
     
     // Camera settings with defaults
     let cameraSettingsConfig = {
@@ -880,21 +858,25 @@
                 displayProduct(product, barcode);
               } else {
                 showNotFound();
+                findSimilarBarcodes(barcode);
               }
             })
             .catch((error) => {
               console.error('Error getting product:', error);
               showNotFound();
               showDebug('Error: ' + error.message);
+              findSimilarBarcodes(barcode);
             });
         } else {
           showNotFound();
+          findSimilarBarcodes(barcode);
         }
         
       } catch (error) {
         console.error('Barcode processing failed:', error);
         showDebug('Barcode processing failed: ' + error.message);
         showNotFound();
+        findSimilarBarcodes(barcode);
       }
     }
     
@@ -914,6 +896,7 @@
       
       productDisplay.style.display = 'block';
       notFound.style.display = 'none';
+      similarResults.style.display = 'none';
       showDebug(`Product found: ${product.name}`);
       
       // Visual feedback
@@ -930,6 +913,7 @@
     function showNotFound() {
       productDisplay.style.display = 'none';
       notFound.style.display = 'block';
+      similarResults.style.display = 'none';
       showDebug('Product not found');
       
       // Visual feedback
@@ -937,6 +921,88 @@
       setTimeout(() => {
         notFound.style.animation = 'shake 0.5s';
       }, 10);
+    }
+    
+    // Find similar barcodes (within 2 digit differences)
+    function findSimilarBarcodes(barcode) {
+      similarItems.innerHTML = '';
+      similarResults.style.display = 'none';
+      
+      if (!barcode || barcode.length < 3) return;
+      
+      const barcodeLength = barcode.length;
+      const minLength = Math.max(3, barcodeLength - 2);
+      const maxLength = barcodeLength + 2;
+      
+      let similarFound = false;
+      let count = 0;
+      
+      for (const cachedBarcode in productsCache) {
+        if (cachedBarcode.length < minLength || cachedBarcode.length > maxLength) continue;
+        
+        // Calculate the Levenshtein distance
+        const distance = levenshteinDistance(barcode, cachedBarcode);
+        if (distance <= 2) {
+          const product = productsCache[cachedBarcode];
+          const similarItem = document.createElement('div');
+          similarItem.className = 'similar-item';
+          similarItem.innerHTML = `
+            <div class="result-name">${product.name}</div>
+            <div class="result-barcode">Barcode: ${cachedBarcode}</div>
+            <div>Price: $${product.price.toFixed(2)}</div>
+          `;
+          
+          similarItem.addEventListener('click', () => {
+            displayProduct(product, cachedBarcode);
+          });
+          
+          similarItems.appendChild(similarItem);
+          similarFound = true;
+          count++;
+          
+          // Limit to 5 results
+          if (count >= 5) break;
+        }
+      }
+      
+      if (similarFound) {
+        similarResults.style.display = 'block';
+        showDebug(`Found ${count} similar products`);
+      }
+    }
+    
+    // Calculate Levenshtein distance between two strings
+    function levenshteinDistance(a, b) {
+      const matrix = [];
+      
+      // Increment along the first column of each row
+      for (let i = 0; i <= b.length; i++) {
+        matrix[i] = [i];
+      }
+      
+      // Increment each column in the first row
+      for (let j = 0; j <= a.length; j++) {
+        matrix[0][j] = j;
+      }
+      
+      // Fill in the rest of the matrix
+      for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+          if (b.charAt(i-1) === a.charAt(j-1)) {
+            matrix[i][j] = matrix[i-1][j-1];
+          } else {
+            matrix[i][j] = Math.min(
+              matrix[i-1][j-1] + 1, // substitution
+              Math.min(
+                matrix[i][j-1] + 1, // insertion
+                matrix[i-1][j] + 1  // deletion
+              )
+            );
+          }
+        }
+      }
+      
+      return matrix[b.length][a.length];
     }
     
     // Apply camera settings
@@ -955,152 +1021,66 @@
       }
     }
     
-    // Search for a product
-    function searchProduct() {
-      const query = searchInput.value.trim();
-      if (!query) return;
-      
-      showDebug(`Searching for: ${query}`);
-      
-      // Check if query is a barcode
-      if (/^\d+$/.test(query)) {
-        handleBarcodeScan(query);
+    // Search for products
+    function searchProducts(query) {
+      query = query.trim().toLowerCase();
+      if (query.length < 2) {
+        searchResults.style.display = 'none';
         return;
       }
       
-      // Search by name
-      let found = false;
+      const results = [];
+      
+      // Search by name and barcode
       for (const barcode in productsCache) {
-        if (productsCache[barcode].name.toLowerCase().includes(query.toLowerCase())) {
-          displayProduct(productsCache[barcode], barcode);
-          found = true;
-          break;
+        const product = productsCache[barcode];
+        const productNameLower = product.name.toLowerCase();
+        const barcodeLower = barcode.toLowerCase();
+        
+        // Check if query matches the beginning of the product name
+        if (productNameLower.startsWith(query)) {
+          results.push({barcode, product});
+        }
+        // Check if barcode matches
+        else if (barcodeLower.startsWith(query)) {
+          results.push({barcode, product});
         }
       }
       
-      if (!found) {
-        showNotFound();
-      }
+      displaySearchResults(results);
     }
     
-    // Admin functions
-    function addNewProduct() {
-      const barcode = adminBarcode.value.trim();
-      const name = adminName.value.trim();
-      const price = parseFloat(adminPrice.value);
-      const imageUrl = adminImage.value.trim();
+    // Display search results
+    function displaySearchResults(results) {
+      searchResults.innerHTML = '';
       
-      if (!barcode || !name || isNaN(price)) {
-        showAdminStatus('Please fill all required fields', 'error');
+      if (results.length === 0) {
+        searchResults.style.display = 'none';
         return;
       }
       
-      const product = {
-        barcode,
-        name,
-        price,
-        imageUrl: imageUrl || ""
-      };
+      // Limit to 10 results
+      const limitedResults = results.slice(0, 10);
       
-      // Update cache immediately
-      productsCache[barcode] = product;
-      localStorage.setItem('productsCache', JSON.stringify(productsCache));
+      limitedResults.forEach(item => {
+        const resultItem = document.createElement('div');
+        resultItem.className = 'search-result-item';
+        resultItem.innerHTML = `
+          <div class="result-name">${item.product.name}</div>
+          <div class="result-barcode">Barcode: ${item.barcode}</div>
+          <div>Price: $${item.product.price.toFixed(2)}</div>
+        `;
+        
+        resultItem.addEventListener('click', () => {
+          displayProduct(item.product, item.barcode);
+          searchResults.style.display = 'none';
+          searchInput.value = '';
+        });
+        
+        searchResults.appendChild(resultItem);
+      });
       
-      // Update Firebase if online
-      if (!offlineMode) {
-        database.ref('products/' + barcode).set(product)
-          .then(() => {
-            showAdminStatus('Product added successfully!', 'success');
-          })
-          .catch(error => {
-            showAdminStatus('Error: ' + error.message, 'error');
-          });
-      } else {
-        showAdminStatus('Product added to cache (offline)', 'success');
-      }
-    }
-    
-    function updateExistingProduct() {
-      const barcode = adminBarcode.value.trim();
-      const name = adminName.value.trim();
-      const price = parseFloat(adminPrice.value);
-      const imageUrl = adminImage.value.trim();
-      
-      if (!barcode || !name || isNaN(price)) {
-        showAdminStatus('Please fill all required fields', 'error');
-        return;
-      }
-      
-      if (!productsCache[barcode]) {
-        showAdminStatus('Product not found in database', 'error');
-        return;
-      }
-      
-      const product = {
-        barcode,
-        name,
-        price,
-        imageUrl: imageUrl || ""
-      };
-      
-      // Update cache immediately
-      productsCache[barcode] = product;
-      localStorage.setItem('productsCache', JSON.stringify(productsCache));
-      
-      // Update Firebase if online
-      if (!offlineMode) {
-        database.ref('products/' + barcode).update(product)
-          .then(() => {
-            showAdminStatus('Product updated successfully!', 'success');
-          })
-          .catch(error => {
-            showAdminStatus('Error: ' + error.message, 'error');
-          });
-      } else {
-        showAdminStatus('Product updated in cache (offline)', 'success');
-      }
-    }
-    
-    function deleteExistingProduct() {
-      const barcode = adminBarcode.value.trim();
-      
-      if (!barcode) {
-        showAdminStatus('Please enter a barcode', 'error');
-        return;
-      }
-      
-      if (!productsCache[barcode]) {
-        showAdminStatus('Product not found in database', 'error');
-        return;
-      }
-      
-      // Remove from cache
-      delete productsCache[barcode];
-      localStorage.setItem('productsCache', JSON.stringify(productsCache));
-      
-      // Delete from Firebase if online
-      if (!offlineMode) {
-        database.ref('products/' + barcode).remove()
-          .then(() => {
-            showAdminStatus('Product deleted successfully!', 'success');
-          })
-          .catch(error => {
-            showAdminStatus('Error: ' + error.message, 'error');
-          });
-      } else {
-        showAdminStatus('Product deleted from cache (offline)', 'success');
-      }
-    }
-    
-    function showAdminStatus(message, type) {
-      adminStatus.textContent = message;
-      adminStatus.className = 'status-message';
-      adminStatus.classList.add(`status-${type}`);
-      adminStatus.style.display = 'block';
-      
-      setTimeout(() => {
-        adminStatus.style.display = 'none';
-      }, 3000);
+      searchResults.style.display = 'block';
     }
     
     // Set up event listeners
@@ -1119,14 +1099,26 @@
       debugInfo.innerHTML = '';
     });
     adminBtn.addEventListener('click', () => {
-      adminPanel.style.display = adminPanel.style.display === 'block' ? 'none' : 'block';
+      window.location.href = 'admin.html';
     });
-    addProduct.addEventListener('click', addNewProduct);
-    updateProduct.addEventListener('click', updateExistingProduct);
-    deleteProduct.addEventListener('click', deleteExistingProduct);
-    searchBtn.addEventListener('click', searchProduct);
-    searchInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') searchProduct();
+    searchBtn.addEventListener('click', () => {
+      searchProducts(searchInput.value);
+    });
+    searchInput.addEventListener('input', () => {
+      if (searchTimeout) clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        searchProducts(searchInput.value);
+      }, 300);
+    });
+    searchInput.addEventListener('focus', () => {
+      if (searchInput.value.length >= 2) {
+        searchProducts(searchInput.value);
+      }
+    });
+    document.addEventListener('click', (e) => {
+      if (!searchResults.contains(e.target) && e.target !== searchInput) {
+        searchResults.style.display = 'none';
+      }
     });
     
     // Network status listeners
