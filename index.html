@@ -157,7 +157,7 @@
       background: linear-gradient(90deg, transparent, #00ff88, transparent);
       box-shadow: 0 0 10px #00ff88;
       top: 0;
-      animation: scan 2s ease-in-out infinite;
+      animation: scan 1.5s ease-in-out infinite;
     }
     
     @keyframes scan {
@@ -488,6 +488,29 @@
       background: rgba(79, 172, 254, 0.2);
     }
     
+    .performance-tips {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 15px;
+      margin-top: 20px;
+      font-size: 0.9rem;
+      display: none;
+    }
+    
+    .performance-tips h3 {
+      text-align: center;
+      margin-bottom: 10px;
+      color: #4facfe;
+    }
+    
+    .performance-tips ul {
+      padding-left: 20px;
+    }
+    
+    .performance-tips li {
+      margin: 8px 0;
+    }
+    
     @media (min-width: 768px) {
       .container {
         max-width: 750px;
@@ -525,25 +548,38 @@
       
       <button id="scan-btn" class="btn btn-secondary">📷 Scan Barcode</button>
       
+      <div class="performance-tips" id="performance-tips">
+        <h3>Faster Scanning Tips</h3>
+        <ul>
+          <li>✅ <strong>Use 480p resolution</strong> for much faster scanning</li>
+          <li>✅ <strong>Try 20 FPS</strong> for optimal speed/accuracy balance</li>
+          <li>✅ <strong>Hold steady 6-12 inches</strong> from barcode</li>
+          <li>✅ <strong>Good lighting</strong> is critical for fast scanning</li>
+          <li>✅ <strong>Clean camera lens</strong> improves recognition</li>
+          <li>✅ <strong>Center barcode</strong> in the scanning frame</li>
+          <li>✅ <strong>Try different angles</strong> if scanning fails</li>
+        </ul>
+      </div>
+      
       <div class="scanner-container" id="scanner-container">
-        <div class="performance-info" id="performance-info">Resolution: 720p | FPS: 20</div>
+        <div class="performance-info" id="performance-info">Resolution: 480p | FPS: 20</div>
         <div class="camera-settings" id="camera-settings">
           <div class="settings-title">Camera Settings</div>
           <div class="form-group">
             <label for="resolution-select">Resolution</label>
             <select id="resolution-select">
-              <option value="480p">480p (SD)</option>
-              <option value="720p" selected>720p (HD)</option>
-              <option value="1080p">1080p (Full HD)</option>
+              <option value="480p" selected>480p (SD) - Fastest</option>
+              <option value="720p">720p (HD) - Balanced</option>
+              <option value="1080p">1080p (Full HD) - Slowest</option>
             </select>
           </div>
           <div class="form-group">
             <label for="fps-select">Frames Per Second</label>
             <select id="fps-select">
-              <option value="10">10 FPS</option>
-              <option value="20" selected>20 FPS</option>
-              <option value="30">30 FPS</option>
-              <option value="60">60 FPS</option>
+              <option value="10">10 FPS - Slow</option>
+              <option value="20" selected>20 FPS - Recommended</option>
+              <option value="30">30 FPS - Fast</option>
+              <option value="60">60 FPS - Very Fast</option>
             </select>
           </div>
           <button id="apply-settings" class="btn">Apply Settings</button>
@@ -647,6 +683,7 @@
     const offlineIndicator = document.getElementById('offline-indicator');
     const similarResults = document.getElementById('similar-results');
     const similarItems = document.getElementById('similar-items');
+    const performanceTips = document.getElementById('performance-tips');
     
     // Variables
     let isScanning = false;
@@ -657,10 +694,11 @@
     let offlineMode = false;
     let productsCache = {};
     let searchTimeout = null;
+    let lastScanTime = 0;
     
-    // Camera settings with defaults
+    // Camera settings with optimized defaults
     let cameraSettingsConfig = {
-      resolution: '720p',
+      resolution: '480p', // Changed to 480p for faster scanning
       fps: 20
     };
     
@@ -725,6 +763,9 @@
     // Initialize barcode scanner with current settings
     async function initScanner() {
       try {
+        // Show performance tips
+        performanceTips.style.display = 'block';
+        
         // Get selected resolution
         const res = resolutions[cameraSettingsConfig.resolution];
         
@@ -744,6 +785,7 @@
         performanceInfo.textContent = `Resolution: ${cameraSettingsConfig.resolution} | FPS: ${cameraSettingsConfig.fps}`;
         isScanning = true;
         scanAttempts = 0;
+        lastScanTime = Date.now();
         
         showDebug(`Scanner started: ${cameraSettingsConfig.resolution} @ ${cameraSettingsConfig.fps}FPS`);
         
@@ -751,7 +793,7 @@
         scannerVideo.onplaying = () => {
           showDebug('Video stream started');
           
-          // Initialize Quagga for barcode scanning
+          // Initialize Quagga for barcode scanning with optimized settings
           Quagga.init({
             inputStream: {
               name: "Live",
@@ -771,11 +813,19 @@
                 "code_39_reader",    // For Code 39
                 "upc_reader",        // For UPC-A
                 "upc_e_reader"       // For UPC-E
-              ]
+              ],
+              debug: {
+                drawBoundingBox: true,
+                showFrequency: false,
+                drawScanline: false,
+                showPattern: false
+              }
             },
             locate: true,
-            frequency: Math.min(10, cameraSettingsConfig.fps/2), // Adaptive frequency
-            halfSample: true
+            frequency: 10, // Fixed value for better performance
+            halfSample: true,
+            patchSize: "medium", // Optimized for performance
+            numOfWorkers: 1, // Use only one worker
           }, function(err) {
             if (err) {
               showDebug("Error initializing scanner: " + err);
@@ -789,6 +839,14 @@
           });
           
           Quagga.onDetected(function(result) {
+            const now = Date.now();
+            // Prevent multiple detections in quick succession
+            if (now - lastScanTime < 1000) {
+              showDebug("Skipping duplicate scan");
+              return;
+            }
+            lastScanTime = now;
+            
             const code = result.codeResult.code;
             showDebug(`Detected barcode: ${code}`);
             handleBarcodeScan(code);
@@ -796,7 +854,8 @@
           
           Quagga.onProcessed(function(result) {
             scanAttempts++;
-            performanceInfo.textContent = `Resolution: ${cameraSettingsConfig.resolution} | FPS: ${cameraSettingsConfig.fps} | Attempts: ${scanAttempts}`;
+            const now = Date.now();
+            performanceInfo.textContent = `Resolution: ${cameraSettingsConfig.resolution} | FPS: ${cameraSettingsConfig.fps} | Attempts: ${scanAttempts} | Time: ${Math.floor((now - lastScanTime)/1000)}s`;
           });
         };
         
@@ -826,6 +885,7 @@
       cameraSettings.style.display = 'none';
       isScanning = false;
       scannerVideo.srcObject = null;
+      performanceTips.style.display = 'none';
     }
     
     // Handle barcode scan
