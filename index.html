@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#4285f4">
   <title>Product Scanner</title>
+  <link rel="manifest" href="manifest.json">
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -169,13 +171,16 @@
       margin: 20px 0;
       position: relative;
       display: none;
+      overflow: hidden;
+      border-radius: 10px;
+      box-shadow: var(--shadow);
     }
     
     #scanner-video {
       width: 100%;
-      border-radius: 10px;
-      box-shadow: var(--shadow);
+      display: block;
       background-color: #000;
+      transform: scaleX(-1); /* Mirror for front camera */
     }
     
     .scanner-overlay {
@@ -625,8 +630,9 @@
         const stream = await navigator.mediaDevices.getUserMedia({ 
           video: { 
             facingMode: "environment", // Prefer back camera
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
+            width: { min: 640, ideal: 1280, max: 1920 },
+            height: { min: 480, ideal: 720, max: 1080 },
+            frameRate: { ideal: 30 }
           } 
         });
         
@@ -634,6 +640,7 @@
         scannerContainer.style.display = 'block';
         isScanning = true;
         scanBtn.textContent = '🛑 Stop Scanning';
+        scanBtn.classList.remove('btn-secondary');
         scanBtn.classList.add('btn-danger');
         
         // Start scanning when video is playing
@@ -642,10 +649,10 @@
           canvas.width = scannerVideo.videoWidth;
           canvas.height = scannerVideo.videoHeight;
           
-          // Start scanning at 10fps
+          // Start scanning at 15fps
           scannerInterval = setInterval(() => {
             scanBarcode(canvas);
-          }, 100);
+          }, 67); // ~15fps
         };
         
       } catch (error) {
