@@ -1,106 +1,1061 @@
-// Cache name
-const CACHE_NAME = 'productscan-cache-v2';
-
-// Files to cache
-const urlsToCache = [
-  '/',
-  '/index.html',
-  '/admin.html',
-  'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js',
-  'https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js',
-  'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js',
-  'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js',
-  // Add any other assets you need to cache
-];
-
-// Install event - cache files
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
-      })
-  );
-});
-
-// Activate event - clean up old caches
-self.addEventListener('activate', event => {
-  const cacheWhitelist = [CACHE_NAME];
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
-            return caches.delete(cacheName);
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Product Scanner</title>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <style>
+    :root {
+      --primary-color: #4285f4;
+      --secondary-color: #34a853;
+      --error-color: #ea4335;
+      --text-color: #333;
+      --light-gray: #f5f5f5;
+      --dark-gray: #757575;
+      --shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    }
+    
+    body {
+      background-color: #f9f9f9;
+      color: var(--text-color);
+      line-height: 1.6;
+      padding: 0;
+      margin: 0;
+      min-height: 100vh;
+    }
+    
+    .container {
+      max-width: 100%;
+      padding: 15px;
+      margin: 0 auto;
+    }
+    
+    header {
+      position: sticky;
+      top: 0;
+      background-color: white;
+      padding: 10px 15px;
+      box-shadow: var(--shadow);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .logo {
+      font-weight: bold;
+      font-size: 1.2rem;
+      color: var(--primary-color);
+    }
+    
+    .search-container {
+      flex-grow: 1;
+      margin: 0 15px;
+      position: relative;
+    }
+    
+    #search-input {
+      width: 100%;
+      padding: 10px 15px;
+      border: 1px solid #ddd;
+      border-radius: 20px;
+      font-size: 1rem;
+      outline: none;
+      transition: border 0.3s;
+    }
+    
+    #search-input:focus {
+      border-color: var(--primary-color);
+    }
+    
+    #search-results {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background-color: white;
+      border-radius: 0 0 10px 10px;
+      box-shadow: var(--shadow);
+      max-height: 300px;
+      overflow-y: auto;
+      z-index: 10;
+      display: none;
+    }
+    
+    .search-item {
+      padding: 10px 15px;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+    }
+    
+    .search-item:hover {
+      background-color: var(--light-gray);
+    }
+    
+    .search-item-name {
+      font-weight: bold;
+    }
+    
+    .search-item-price {
+      color: var(--secondary-color);
+      font-size: 0.9rem;
+    }
+    
+    .menu-btn {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--text-color);
+    }
+    
+    .main-content {
+      padding: 20px 0;
+    }
+    
+    .section-title {
+      font-size: 1.2rem;
+      margin-bottom: 15px;
+      color: var(--dark-gray);
+    }
+    
+    .btn {
+      display: inline-block;
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 5px;
+      font-size: 1rem;
+      cursor: pointer;
+      text-align: center;
+      transition: background-color 0.3s;
+      margin: 5px 0;
+      width: 100%;
+    }
+    
+    .btn:hover {
+      background-color: #3367d6;
+    }
+    
+    .btn-secondary {
+      background-color: var(--secondary-color);
+    }
+    
+    .btn-secondary:hover {
+      background-color: #2d9249;
+    }
+    
+    .btn-danger {
+      background-color: var(--error-color);
+    }
+    
+    .btn-danger:hover {
+      background-color: #d33426;
+    }
+    
+    .scanner-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: black;
+      z-index: 1000;
+      display: none;
+      flex-direction: column;
+    }
+    
+    #scanner-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(1); /* Corrected for back camera */
+    }
+    
+    .scanner-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    
+    .scanner-frame {
+      width: 90%;
+      max-width: 500px;
+      height: 200px;
+      border: 3px solid var(--secondary-color);
+      border-radius: 10px;
+    }
+    
+    .scanner-guide {
+      margin-top: 15px;
+      color: white;
+      font-weight: bold;
+      text-align: center;
+      text-shadow: 0 0 5px rgba(0,0,0,0.5);
+      font-size: 1.2rem;
+    }
+    
+    .scanner-controls {
+      position: absolute;
+      bottom: 20px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+    }
+    
+    .scanner-btn {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: white;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      cursor: pointer;
+      backdrop-filter: blur(5px);
+    }
+    
+    .product-display {
+      background-color: white;
+      border-radius: 10px;
+      padding: 20px;
+      margin: 20px 0;
+      box-shadow: var(--shadow);
+      display: none;
+    }
+    
+    .product-name {
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    
+    .product-price {
+      font-size: 1.8rem;
+      color: var(--secondary-color);
+      font-weight: bold;
+    }
+    
+    .product-barcode {
+      color: var(--dark-gray);
+      font-size: 0.9rem;
+      margin-top: 10px;
+    }
+    
+    .sync-status {
+      font-size: 0.9rem;
+      color: var(--dark-gray);
+      margin-top: 20px;
+      text-align: center;
+    }
+    
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      display: none;
+    }
+    
+    .modal-content {
+      background-color: white;
+      padding: 20px;
+      border-radius: 10px;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: var(--shadow);
+    }
+    
+    .modal-title {
+      font-size: 1.3rem;
+      margin-bottom: 20px;
+      color: var(--primary-color);
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+    
+    .form-group input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-size: 1rem;
+    }
+    
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+    
+    .error-message {
+      color: var(--error-color);
+      font-size: 0.9rem;
+      margin-top: 10px;
+      text-align: center;
+    }
+    
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 1s ease-in-out infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .not-found {
+      text-align: center;
+      padding: 20px;
+      color: var(--error-color);
+      display: none;
+    }
+    
+    .offline-banner {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-color: #ff9800;
+      color: white;
+      padding: 10px;
+      text-align: center;
+      display: none;
+      z-index: 100;
+    }
+    
+    .debug-panel {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      font-size: 0.8rem;
+      z-index: 2000;
+      display: none;
+    }
+    
+    @media (min-width: 768px) {
+      .container {
+        max-width: 750px;
+      }
+      
+      .btn {
+        width: auto;
+      }
+      
+      .scanner-frame {
+        width: 60%;
+        height: 250px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">ProductScan</div>
+    <div class="search-container">
+      <input type="text" id="search-input" placeholder="Search products...">
+      <div id="search-results"></div>
+    </div>
+    <button class="menu-btn" id="menu-btn">☰</button>
+  </header>
+  
+  <div class="container">
+    <div class="main-content">
+      <button id="scan-btn" class="btn btn-secondary">📷 Scan Barcode</button>
+      <button id="sync-btn" class="btn">🔄 Sync Now</button>
+      
+      <div class="scanner-container" id="scanner-container">
+        <video id="scanner-video" playsinline autoplay></video>
+        <div class="scanner-overlay">
+          <div class="scanner-frame"></div>
+          <div class="scanner-guide">Point camera at barcode</div>
+        </div>
+        <div class="scanner-controls">
+          <button class="scanner-btn" id="close-scanner">✕</button>
+          <button class="scanner-btn" id="toggle-flash">🔦</button>
+        </div>
+      </div>
+      
+      <div class="product-display" id="product-display">
+        <div class="product-name" id="product-name"></div>
+        <div class="product-price" id="product-price"></div>
+        <div class="product-barcode" id="product-barcode"></div>
+      </div>
+      
+      <div class="not-found" id="not-found">
+        Product not found in database
+      </div>
+      
+      <div class="sync-status" id="sync-status">
+        Last sync: Never
+      </div>
+    </div>
+  </div>
+  
+  <div class="debug-panel" id="debug-panel">
+    <div>Debug Information:</div>
+    <div id="debug-info"></div>
+  </div>
+  
+  <div class="offline-banner" id="offline-banner">
+    You are currently offline. Some features may be limited.
+  </div>
+  
+  <div class="modal" id="login-modal">
+    <div class="modal-content">
+      <div class="modal-title">Admin Login</div>
+      <div class="form-group">
+        <label for="login-email">Email</label>
+        <input type="email" id="login-email" placeholder="admin@example.com">
+      </div>
+      <div class="form-group">
+        <label for="login-password">Password</label>
+        <input type="password" id="login-password" placeholder="Password">
+      </div>
+      <div class="error-message" id="login-error"></div>
+      <div class="modal-actions">
+        <button id="cancel-login" class="btn btn-danger" style="margin-right: 10px;">Cancel</button>
+        <button id="submit-login" class="btn">Login</button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyDdjJKO4eeIWtKKUKiuT9USPF3eyFnVuSQ",
+      authDomain: "scan-prod1.firebaseapp.com",
+      databaseURL: "https://scan-prod1-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "scan-prod1",
+      storageBucket: "scan-prod1.firebasestorage.app",
+      messagingSenderId: "197976973628",
+      appId: "1:197976973628:web:73bdf954ae78017b813e39"
+    };
+    
+    // Initialize Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+    const auth = firebase.auth();
+    
+    // DOM elements
+    const searchInput = document.getElementById('search-input');
+    const searchResults = document.getElementById('search-results');
+    const menuBtn = document.getElementById('menu-btn');
+    const scanBtn = document.getElementById('scan-btn');
+    const syncBtn = document.getElementById('sync-btn');
+    const scannerContainer = document.getElementById('scanner-container');
+    const scannerVideo = document.getElementById('scanner-video');
+    const closeScanner = document.getElementById('close-scanner');
+    const toggleFlash = document.getElementById('toggle-flash');
+    const productDisplay = document.getElementById('product-display');
+    const productName = document.getElementById('product-name');
+    const productPrice = document.getElementById('product-price');
+    const productBarcode = document.getElementById('product-barcode');
+    const notFound = document.getElementById('not-found');
+    const syncStatus = document.getElementById('sync-status');
+    const offlineBanner = document.getElementById('offline-banner');
+    const loginModal = document.getElementById('login-modal');
+    const loginEmail = document.getElementById('login-email');
+    const loginPassword = document.getElementById('login-password');
+    const loginError = document.getElementById('login-error');
+    const cancelLogin = document.getElementById('cancel-login');
+    const submitLogin = document.getElementById('submit-login');
+    const debugPanel = document.getElementById('debug-panel');
+    const debugInfo = document.getElementById('debug-info');
+    
+    // Variables
+    let isScanning = false;
+    let scannerInterval = null;
+    let canvasContext = null;
+    let db = null;
+    let stream = null;
+    let flashOn = false;
+    let debugMode = true; // Set to false in production
+    
+    // Initialize IndexedDB
+    function initDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open('ProductDB', 2); // Increased version to force update
+        
+        request.onerror = (event) => {
+          console.error('IndexedDB error:', event.target.error);
+          showDebug('IndexedDB error: ' + event.target.error.message);
+          reject('Failed to open database');
+        };
+        
+        request.onsuccess = (event) => {
+          db = event.target.result;
+          showDebug('IndexedDB initialized successfully');
+          resolve(db);
+        };
+        
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains('products')) {
+            const store = db.createObjectStore('products', { keyPath: 'barcode' });
+            store.createIndex('name', 'name', { unique: false });
+            showDebug('Created products object store');
           }
-        })
-      );
-    })
-  );
-});
-
-// Fetch event - serve from cache or network
-self.addEventListener('fetch', event => {
-  // Skip Firebase URLs
-  if (event.request.url.includes('firebaseio.com')) {
-    return;
-  }
-
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        // Cache hit - return response
-        if (response) {
-          return response;
+        };
+      });
+    }
+    
+    // Add product to IndexedDB
+    function addProductToDB(product) {
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['products'], 'readwrite');
+        const store = transaction.objectStore('products');
+        const request = store.put(product);
+        
+        request.onsuccess = () => {
+          showDebug(`Added product to IndexedDB: ${product.barcode} - ${product.name}`);
+          resolve();
         }
-
-        // Clone the request
-        const fetchRequest = event.request.clone();
-
-        return fetch(fetchRequest).then(
-          response => {
-            // Check if we received a valid response
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
-            }
-
-            // Clone the response
-            const responseToCache = response.clone();
-
-            caches.open(CACHE_NAME)
-              .then(cache => {
-                cache.put(event.request, responseToCache);
-              });
-
-            return response;
+        request.onerror = (event) => {
+          showDebug('Error adding product to IndexedDB: ' + event.target.error);
+          reject(event.target.error);
+        }
+      });
+    }
+    
+    // Get product by barcode from IndexedDB
+    function getProductByBarcode(barcode) {
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['products'], 'readonly');
+        const store = transaction.objectStore('products');
+        const request = store.get(barcode);
+        
+        request.onsuccess = () => {
+          showDebug(`Product lookup for ${barcode}: ${request.result ? 'Found' : 'Not found'}`);
+          resolve(request.result);
+        }
+        request.onerror = (event) => {
+          showDebug('Error getting product from IndexedDB: ' + event.target.error);
+          reject(event.target.error);
+        }
+      });
+    }
+    
+    // Search products by name in IndexedDB
+    function searchProductsByName(query) {
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['products'], 'readonly');
+        const store = transaction.objectStore('products');
+        const index = store.index('name');
+        const request = index.getAll();
+        
+        request.onsuccess = () => {
+          const products = request.result.filter(product => 
+            product.name.toLowerCase().includes(query.toLowerCase())
+          );
+          showDebug(`Search for "${query}" found ${products.length} products`);
+          resolve(products);
+        };
+        
+        request.onerror = (event) => {
+          showDebug('Search error: ' + event.target.error);
+          reject(event.target.error);
+        }
+      });
+    }
+    
+    // Get all products from IndexedDB
+    function getAllProductsFromDB() {
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['products'], 'readonly');
+        const store = transaction.objectStore('products');
+        const request = store.getAll();
+        
+        request.onsuccess = () => {
+          showDebug(`Retrieved ${request.result.length} products from IndexedDB`);
+          resolve(request.result);
+        };
+        request.onerror = (event) => {
+          showDebug('Error getting all products: ' + event.target.error);
+          reject(event.target.error);
+        }
+      });
+    }
+    
+    // Clear all products from IndexedDB
+    function clearProductsDB() {
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['products'], 'readwrite');
+        const store = transaction.objectStore('products');
+        const request = store.clear();
+        
+        request.onsuccess = () => {
+          showDebug('Cleared all products from IndexedDB');
+          resolve();
+        }
+        request.onerror = (event) => {
+          showDebug('Error clearing IndexedDB: ' + event.target.error);
+          reject(event.target.error);
+        }
+      });
+    }
+    
+    // Sync products from Firebase to IndexedDB
+    async function syncProducts() {
+      try {
+        if (!navigator.onLine) {
+          showDebug('Sync failed: No internet connection');
+          throw new Error('No internet connection');
+        }
+        
+        syncBtn.innerHTML = '<span class="loading"></span> Syncing...';
+        showDebug('Starting product sync from Firebase');
+        
+        const snapshot = await database.ref('products').once('value');
+        const products = snapshot.val();
+        
+        await clearProductsDB();
+        
+        if (products) {
+          const productCount = Object.keys(products).length;
+          showDebug(`Syncing ${productCount} products from Firebase`);
+          
+          const promises = Object.entries(products).map(([barcode, product]) => {
+            // Ensure barcode is stored as string for consistency
+            const productData = {
+              ...product,
+              barcode: String(barcode) // Use Firebase key as barcode
+            };
+            return addProductToDB(productData);
+          });
+          
+          await Promise.all(promises);
+          showDebug(`Successfully synced ${productCount} products`);
+        } else {
+          showDebug('No products found in Firebase');
+        }
+        
+        const lastSync = new Date().toLocaleString();
+        localStorage.setItem('lastSync', lastSync);
+        syncStatus.textContent = `Last sync: ${lastSync}`;
+        syncBtn.textContent = '🔄 Sync Now';
+        showDebug('Sync completed successfully');
+        
+        return true;
+      } catch (error) {
+        console.error('Sync failed:', error);
+        showDebug('Sync failed: ' + error.message);
+        syncBtn.textContent = '🔄 Sync Now';
+        showError('Sync failed. ' + error.message);
+        return false;
+      }
+    }
+    
+    // Show product information
+    function showProduct(product) {
+      productName.textContent = product.name;
+      productPrice.textContent = `$${product.price.toFixed(2)}`;
+      productBarcode.textContent = `Barcode: ${product.barcode}`;
+      productDisplay.style.display = 'block';
+      notFound.style.display = 'none';
+      showDebug(`Displaying product: ${product.barcode} - ${product.name}`);
+    }
+    
+    // Show not found message
+    function showNotFound() {
+      productDisplay.style.display = 'none';
+      notFound.style.display = 'block';
+      showDebug('Product not found in database');
+    }
+    
+    // Show error message
+    function showError(message) {
+      const errorElement = document.createElement('div');
+      errorElement.className = 'error-message';
+      errorElement.textContent = message;
+      
+      const container = document.querySelector('.container');
+      container.insertBefore(errorElement, container.firstChild);
+      
+      setTimeout(() => {
+        errorElement.remove();
+      }, 5000);
+    }
+    
+    // Show debug information
+    function showDebug(message) {
+      if (!debugMode) return;
+      
+      debugPanel.style.display = 'block';
+      debugInfo.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${message}</div>`;
+      debugInfo.scrollTop = debugInfo.scrollHeight;
+    }
+    
+    // Initialize barcode scanner
+    async function initScanner() {
+      try {
+        // Create canvas for processing
+        const canvas = document.createElement('canvas');
+        canvasContext = canvas.getContext('2d', { willReadFrequently: true });
+        
+        // Get camera access
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: "environment", // Prefer back camera
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            frameRate: { ideal: 30 },
+            focusMode: "continuous" // Enable continuous autofocus
+          } 
+        });
+        
+        scannerVideo.srcObject = stream;
+        scannerContainer.style.display = 'flex';
+        isScanning = true;
+        showDebug('Scanner initialized with back camera');
+        
+        // Apply the correct orientation for back camera
+        scannerVideo.style.transform = 'scaleX(1)';
+        
+        // Start scanning when video is playing
+        scannerVideo.onplaying = () => {
+          showDebug('Video stream started');
+          
+          // Set canvas dimensions to match video
+          canvas.width = scannerVideo.videoWidth;
+          canvas.height = scannerVideo.videoHeight;
+          showDebug(`Canvas size: ${canvas.width}x${canvas.height}`);
+          
+          // Start scanning at 30fps
+          scannerInterval = setInterval(() => {
+            scanBarcode(canvas);
+          }, 33); // ~30fps
+        };
+        
+      } catch (error) {
+        console.error('Scanner init failed:', error);
+        showDebug('Scanner init failed: ' + error.message);
+        showError('Failed to initialize scanner: ' + error.message);
+        if (error.name === 'NotAllowedError') {
+          showError('Camera access denied. Please allow camera permissions.');
+        }
+        stopScanner();
+      }
+    }
+    
+    // Scan for barcodes
+    function scanBarcode(canvas) {
+      if (!scannerVideo.videoWidth || !scannerVideo.videoHeight) {
+        return;
+      }
+      
+      try {
+        // Draw video frame to canvas
+        canvasContext.drawImage(
+          scannerVideo, 
+          0, 
+          0, 
+          canvas.width, 
+          canvas.height
+        );
+        
+        // Get image data
+        const imageData = canvasContext.getImageData(
+          0, 
+          0, 
+          canvas.width, 
+          canvas.height
+        );
+        
+        // Scan for QR/barcode
+        const code = jsQR(
+          imageData.data, 
+          imageData.width, 
+          imageData.height, 
+          {
+            inversionAttempts: "dontInvert",
           }
         );
-      })
-  );
-});
-
-// Background sync for product data
-self.addEventListener('sync', event => {
-  if (event.tag === 'sync-products') {
-    event.waitUntil(
-      // Implement your sync logic here
-      console.log('Background sync for products')
-    );
-  }
-});
-
-// Push notifications
-self.addEventListener('push', event => {
-  const data = event.data.json();
-  const title = data.title || 'ProductScan Notification';
-  const options = {
-    body: data.body || 'You have a new notification',
-    icon: 'icon-192.png',
-    badge: 'icon-192.png'
-  };
-
-  event.waitUntil(
-    self.registration.showNotification(title, options)
-  );
-});
+        
+        // If code found
+        if (code) {
+          showDebug(`Scanned barcode: ${code.data}`);
+          
+          // Validate barcode - EAN-13 should be 13 digits
+          const barcode = code.data;
+          if (/^\d{13}$/.test(barcode)) {
+            showDebug('Valid EAN-13 barcode detected');
+            handleBarcodeScan(barcode);
+          } else {
+            showDebug('Invalid barcode format. EAN-13 should be 13 digits.');
+          }
+        }
+      } catch (error) {
+        console.error('Scan error:', error);
+        showDebug('Scan error: ' + error.message);
+      }
+    }
+    
+    // Stop barcode scanner
+    function stopScanner() {
+      if (scannerInterval) {
+        clearInterval(scannerInterval);
+        scannerInterval = null;
+        showDebug('Scanner interval cleared');
+      }
+      
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+        showDebug('Camera stream stopped');
+      }
+      
+      scannerContainer.style.display = 'none';
+      isScanning = false;
+      flashOn = false;
+      scannerVideo.srcObject = null;
+      showDebug('Scanner stopped');
+    }
+    
+    // Toggle flashlight
+    function toggleFlashlight() {
+      if (!stream) return;
+      
+      const track = stream.getVideoTracks()[0];
+      if (!track || !track.getCapabilities().torch) {
+        showDebug('Flash not available on this device');
+        return;
+      }
+      
+      flashOn = !flashOn;
+      
+      track.applyConstraints({
+        advanced: [{ torch: flashOn }]
+      }).then(() => {
+        toggleFlash.textContent = flashOn ? '💡' : '🔦';
+        showDebug(`Flash ${flashOn ? 'enabled' : 'disabled'}`);
+      }).catch(err => {
+        console.error('Error toggling flash:', err);
+        showDebug('Error toggling flash: ' + err.message);
+      });
+    }
+    
+    // Handle barcode scan
+    async function handleBarcodeScan(barcode) {
+      try {
+        showDebug(`Looking up product for barcode: ${barcode}`);
+        const product = await getProductByBarcode(barcode);
+        
+        if (product) {
+          showProduct(product);
+        } else {
+          showNotFound();
+        }
+        
+        stopScanner();
+      } catch (error) {
+        console.error('Barcode lookup failed:', error);
+        showDebug('Barcode lookup failed: ' + error.message);
+        showError('Failed to lookup product: ' + error.message);
+        stopScanner();
+      }
+    }
+    
+    // Check online status
+    function updateOnlineStatus() {
+      if (navigator.onLine) {
+        offlineBanner.style.display = 'none';
+        showDebug('Online');
+      } else {
+        offlineBanner.style.display = 'block';
+        showDebug('Offline');
+      }
+    }
+    
+    // Initialize the app
+    async function initApp() {
+      try {
+        showDebug('Initializing application');
+        await initDB();
+        
+        // Load last sync time
+        const lastSync = localStorage.getItem('lastSync');
+        if (lastSync) {
+          syncStatus.textContent = `Last sync: ${lastSync}`;
+          showDebug(`Last sync: ${lastSync}`);
+        }
+        
+        // Check if we have any products in IndexedDB
+        const products = await getAllProductsFromDB();
+        if (products.length === 0 && navigator.onLine) {
+          showDebug('No products in IndexedDB, starting sync');
+          await syncProducts();
+        } else if (products.length > 0) {
+          showDebug(`Found ${products.length} products in IndexedDB`);
+        }
+        
+        // Set up event listeners
+        searchInput.addEventListener('input', async (e) => {
+          const query = e.target.value.trim();
+          
+          if (query.length < 2) {
+            searchResults.style.display = 'none';
+            return;
+          }
+          
+          try {
+            const results = await searchProductsByName(query);
+            
+            searchResults.innerHTML = '';
+            
+            if (results.length > 0) {
+              results.forEach(product => {
+                const item = document.createElement('div');
+                item.className = 'search-item';
+                item.innerHTML = `
+                  <div class="search-item-name">${product.name}</div>
+                  <div class="search-item-price">$${product.price.toFixed(2)}</div>
+                `;
+                
+                item.addEventListener('click', () => {
+                  showProduct(product);
+                  searchInput.value = '';
+                  searchResults.style.display = 'none';
+                });
+                
+                searchResults.appendChild(item);
+              });
+              
+              searchResults.style.display = 'block';
+            } else {
+              searchResults.style.display = 'none';
+            }
+          } catch (error) {
+            console.error('Search failed:', error);
+            showDebug('Search failed: ' + error.message);
+          }
+        });
+        
+        document.addEventListener('click', (e) => {
+          if (e.target !== searchInput) {
+            searchResults.style.display = 'none';
+          }
+        });
+        
+        scanBtn.addEventListener('click', () => {
+          initScanner();
+        });
+        
+        closeScanner.addEventListener('click', () => {
+          stopScanner();
+        });
+        
+        toggleFlash.addEventListener('click', () => {
+          toggleFlashlight();
+        });
+        
+        syncBtn.addEventListener('click', syncProducts);
+        
+        menuBtn.addEventListener('click', () => {
+          loginModal.style.display = 'flex';
+        });
+        
+        cancelLogin.addEventListener('click', () => {
+          loginModal.style.display = 'none';
+          loginError.textContent = '';
+          loginEmail.value = '';
+          loginPassword.value = '';
+        });
+        
+        submitLogin.addEventListener('click', async () => {
+          const email = loginEmail.value.trim();
+          const password = loginPassword.value.trim();
+          
+          if (!email || !password) {
+            loginError.textContent = 'Please enter both email and password';
+            return;
+          }
+          
+          try {
+            submitLogin.innerHTML = '<span class="loading"></span> Logging in...';
+            
+            await auth.signInWithEmailAndPassword(email, password);
+            
+            // Redirect to admin page
+            window.location.href = 'admin.html';
+          } catch (error) {
+            console.error('Login failed:', error);
+            loginError.textContent = error.message;
+            submitLogin.textContent = 'Login';
+          }
+        });
+        
+        // Handle online/offline status
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+        updateOnlineStatus();
+        
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+          try {
+            await navigator.serviceWorker.register('sw.js');
+            showDebug('Service Worker registered');
+          } catch (error) {
+            console.error('Service Worker registration failed:', error);
+            showDebug('Service Worker registration failed: ' + error.message);
+          }
+        }
+      } catch (error) {
+        console.error('App initialization failed:', error);
+        showDebug('App initialization failed: ' + error.message);
+        showError('Failed to initialize app: ' + error.message);
+      }
+    }
+    
+    // Start the app
+    document.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>
